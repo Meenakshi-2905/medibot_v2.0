@@ -906,6 +906,6 @@ st.markdown("""
 <div class="footer">
     <p>🩺 Dr. Medibot v2.0 • Powered by Groq AI</p>
     <p class="disclaimer">⚠️ For educational purposes only. Always consult a healthcare professional.</p>
-    <p style="font-size: 0.7rem; color: #ccc;">Made with ❤️ using Streamlit</p>
+    <p style="font-size: 0.7rem; color: #ccc;">Made by Meenakshi Mehta and Priyanshu Chand</p>
 </div>
 """, unsafe_allow_html=True)
