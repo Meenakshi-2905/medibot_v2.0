@@ -1,13 +1,12 @@
 """
-🩺 Dr. Medibot - Medical AI Assistant
-Admin-only document upload | Persistent storage | Auto-load on startup
+🩺 Dr. Medibot - DEBUG VERSION
+Shows exactly what's happening with the API key
 """
 
 import streamlit as st
 import os
 import tempfile
 import json
-import shutil
 from datetime import datetime
 from typing import List
 
@@ -19,451 +18,110 @@ except ImportError:
     GROQ_AVAILABLE = False
 
 try:
-    from langchain_community.document_loaders import PyPDFLoader
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    from langchain_community.vectorstores import Chroma
-    RAG_AVAILABLE = True
+    from pypdf import PdfReader
+    PDF_AVAILABLE = True
 except ImportError:
-    RAG_AVAILABLE = False
+    PDF_AVAILABLE = False
 
 # ==================== ADMIN PASSWORD ====================
-ADMIN_PASSWORD = "admin123"  # ← CHANGE THIS!
-
-# ==================== PERSISTENT STORAGE ====================
-PERSIST_DIR = "./medibot_db"
-METADATA_FILE = os.path.join(PERSIST_DIR, "metadata.json")
-VECTORSTORE_PATH = os.path.join(PERSIST_DIR, "vectorstore")
+ADMIN_PASSWORD = "admin123"
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
     page_title="Dr. Medibot - AI Medical Assistant",
     page_icon="🩺",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
-
-# ==================== CUSTOM CSS ====================
-st.markdown("""
-<style>
-    /* ===== RESET & BASE ===== */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    .stApp {
-        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 50%, #bcccdc 100%);
-    }
-    
-    /* ===== MAIN HEADER ===== */
-    .main-header {
-        background: linear-gradient(135deg, #0a5c3f 0%, #1a7a5a 40%, #2d8f6f 80%, #3da87a 100%);
-        padding: 2rem 2.5rem;
-        border-radius: 20px;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 40px rgba(10, 92, 63, 0.35);
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .main-header::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -10%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
-        border-radius: 50%;
-        pointer-events: none;
-    }
-    .main-header::after {
-        content: '';
-        position: absolute;
-        bottom: -30%;
-        left: 10%;
-        width: 250px;
-        height: 250px;
-        background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
-        border-radius: 50%;
-        pointer-events: none;
-    }
-    .main-header h1 {
-        font-size: 2.8rem;
-        font-weight: 800;
-        position: relative;
-        z-index: 1;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin: 0;
-    }
-    .main-header p {
-        opacity: 0.92;
-        font-size: 1.1rem;
-        position: relative;
-        z-index: 1;
-        text-shadow: 0 1px 5px rgba(0,0,0,0.05);
-        margin: 0.3rem 0 0 0;
-    }
-    .header-badge {
-        display: inline-block;
-        background: rgba(255,255,255,0.2);
-        padding: 0.3rem 1.2rem;
-        border-radius: 50px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-top: 0.5rem;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.15);
-        position: relative;
-        z-index: 1;
-    }
-    
-    /* ===== SIDEBAR ===== */
-    .css-1d391kg, .css-1lcbmhc {
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    }
-    .sidebar-section {
-        background: white;
-        padding: 1.2rem;
-        border-radius: 16px;
-        margin-bottom: 1.2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-        border: 1px solid rgba(0,0,0,0.04);
-    }
-    .sidebar-section h3 {
-        color: #0a5c3f;
-        font-size: 1rem;
-        font-weight: 700;
-        margin-bottom: 0.8rem;
-    }
-    
-    /* ===== CHAT MESSAGES ===== */
-    .user-message {
-        background: linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%);
-        padding: 0.8rem 1.2rem;
-        border-radius: 18px 18px 5px 18px;
-        margin: 0.5rem 0;
-        margin-left: 20%;
-        border: 1px solid rgba(144, 202, 249, 0.3);
-        box-shadow: 0 2px 8px rgba(144, 202, 249, 0.15);
-        animation: slideInRight 0.4s ease;
-        color: #1a237e;
-    }
-    .assistant-message {
-        background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
-        padding: 0.8rem 1.2rem;
-        border-radius: 18px 18px 18px 5px;
-        margin: 0.5rem 0;
-        margin-right: 20%;
-        border-left: 4px solid #0a5c3f;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        animation: slideInLeft 0.4s ease;
-        color: #1a2a3a;
-    }
-    .assistant-message strong {
-        color: #0a5c3f;
-    }
-    
-    @keyframes slideInRight {
-        from { opacity: 0; transform: translateX(20px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-    @keyframes slideInLeft {
-        from { opacity: 0; transform: translateX(-20px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-    
-    /* ===== EMERGENCY WARNING ===== */
-    .emergency-warning {
-        background: linear-gradient(135deg, #ff1744 0%, #d50000 100%);
-        color: white;
-        padding: 1.2rem 1.5rem;
-        border-radius: 16px;
-        margin: 1rem 0;
-        animation: pulse 1.5s infinite;
-        box-shadow: 0 8px 30px rgba(255,23,68,0.35);
-        border: 1px solid rgba(255,255,255,0.15);
-    }
-    @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.92; transform: scale(1.01); }
-    }
-    
-    /* ===== WELCOME CARD ===== */
-    .welcome-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        padding: 2rem;
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-        border: 1px solid rgba(255,255,255,0.5);
-        margin: 1rem 0;
-    }
-    .welcome-card h3 {
-        color: #0a5c3f;
-        font-size: 1.6rem;
-        font-weight: 700;
-        margin-bottom: 0.3rem;
-    }
-    .welcome-card .subtitle {
-        color: #555;
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    /* ===== ICON BOXES ===== */
-    .icon-box {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        padding: 1.2rem 0.8rem;
-        border-radius: 14px;
-        text-align: center;
-        transition: all 0.3s ease;
-        border: 1px solid rgba(10, 92, 63, 0.08);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        height: 100%;
-    }
-    .icon-box:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(10, 92, 63, 0.12);
-        border-color: rgba(10, 92, 63, 0.15);
-    }
-    .icon-box .icon {
-        font-size: 2.5rem;
-        line-height: 1.2;
-        margin-bottom: 0.3rem;
-    }
-    .icon-box .label {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #1a2a3a;
-    }
-    
-    /* ===== STATS ===== */
-    .stat-card {
-        background: white;
-        padding: 1rem;
-        border-radius: 12px;
-        text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        border: 1px solid rgba(0,0,0,0.04);
-    }
-    .stat-card .number {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #0a5c3f;
-    }
-    .stat-card .label {
-        font-size: 0.8rem;
-        color: #888;
-    }
-    
-    /* ===== STATUS ONLINE ===== */
-    .status-online {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: #e8f5e9;
-        color: #2e7d32;
-        padding: 0.3rem 1rem;
-        border-radius: 50px;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-    .status-online .dot {
-        width: 8px;
-        height: 8px;
-        background: #4caf50;
-        border-radius: 50%;
-        animation: pulse-dot 2s infinite;
-    }
-    @keyframes pulse-dot {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
-    }
-    
-    /* ===== ADMIN BADGE ===== */
-    .admin-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #ffd700 0%, #f9a825 100%);
-        color: #333;
-        padding: 0.2rem 0.8rem;
-        border-radius: 50px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
-    }
-    
-    /* ===== SECTION DIVIDERS ===== */
-    .section-divider {
-        border: none;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, rgba(10, 92, 63, 0.15), transparent);
-        margin: 1.5rem 0;
-    }
-    
-    /* ===== HOW IT WORKS BOX ===== */
-    .how-it-works-box {
-        background: #f8fafc;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        border-left: 4px solid #0a5c3f;
-        margin: 1rem 0;
-    }
-    .how-it-works-box ol {
-        color: #333;
-        line-height: 2.2;
-        margin-left: 0;
-        padding-left: 1.2rem;
-    }
-    .how-it-works-box ol li strong {
-        color: #0a5c3f;
-    }
-    
-    /* ===== DISCLAIMER BOX ===== */
-    .disclaimer-box {
-        background: #fff3e0;
-        padding: 1rem 1.2rem;
-        border-radius: 12px;
-        border-left: 4px solid #ff9800;
-        margin: 1rem 0;
-    }
-    .disclaimer-box strong {
-        color: #e65100;
-    }
-    .disclaimer-box span {
-        color: #555;
-        font-size: 0.9rem;
-    }
-    
-    /* ===== EXAMPLE QUESTIONS ===== */
-    .example-btn-container {
-        margin: 0.5rem 0;
-    }
-    
-    /* ===== FOOTER ===== */
-    .footer {
-        text-align: center;
-        padding: 2rem 0 0.5rem;
-        border-top: 1px solid rgba(0,0,0,0.06);
-        margin-top: 2rem;
-    }
-    .footer p {
-        color: #888;
-        font-size: 0.8rem;
-        margin: 0.2rem 0;
-    }
-    .footer .disclaimer {
-        color: #e57373;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-    
-    /* ===== RESPONSIVE ===== */
-    @media (max-width: 768px) {
-        .main-header h1 { font-size: 2rem; }
-        .main-header { padding: 1.5rem; }
-        .user-message, .assistant-message {
-            margin-left: 5% !important;
-            margin-right: 5% !important;
-        }
-        .welcome-card { padding: 1.2rem; }
-    }
-    
-    @media (max-width: 480px) {
-        .main-header h1 { font-size: 1.5rem; }
-        .icon-box .icon { font-size: 2rem; }
-        .icon-box .label { font-size: 0.75rem; }
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # ==================== SESSION STATE ====================
 def init_session_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    if "vectorstore" not in st.session_state:
-        st.session_state.vectorstore = None
     if "docs_loaded" not in st.session_state:
         st.session_state.docs_loaded = False
-    if "conversation_id" not in st.session_state:
-        st.session_state.conversation_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if "symptoms" not in st.session_state:
-        st.session_state.symptoms = []
-    if "emergency" not in st.session_state:
-        st.session_state.emergency = False
+    if "doc_text" not in st.session_state:
+        st.session_state.doc_text = ""
     if "doc_name" not in st.session_state:
         st.session_state.doc_name = None
     if "is_admin" not in st.session_state:
         st.session_state.is_admin = False
-    if "initialized" not in st.session_state:
-        st.session_state.initialized = False
 
 init_session_state()
 
-# ==================== PERSISTENT STORAGE FUNCTIONS ====================
-def ensure_storage_dir():
-    os.makedirs(PERSIST_DIR, exist_ok=True)
-
-def save_metadata(doc_name: str, chunk_count: int):
-    ensure_storage_dir()
-    metadata = {
-        "doc_name": doc_name,
-        "chunk_count": chunk_count,
-        "uploaded_at": datetime.now().isoformat(),
-        "version": "1.0"
+# ==================== CSS ====================
+st.markdown("""
+<style>
+    .main-header {
+        background: linear-gradient(135deg, #0a5c3f 0%, #1a7a5a 50%, #2d8f6f 100%);
+        padding: 2rem 2.5rem;
+        border-radius: 20px;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(10, 92, 63, 0.3);
     }
-    with open(METADATA_FILE, "w") as f:
-        json.dump(metadata, f, indent=2)
+    .main-header h1 { font-size: 2.8rem; font-weight: 800; }
+    .main-header p { opacity: 0.9; font-size: 1.1rem; }
+    .header-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.2);
+        padding: 0.3rem 1rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+    .admin-badge {
+        display: inline-block;
+        background: #ffd700;
+        color: #333;
+        padding: 0.2rem 0.8rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+    .user-message {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        padding: 0.8rem 1.2rem;
+        border-radius: 18px 18px 5px 18px;
+        margin: 0.5rem 0;
+        margin-left: 20%;
+        border: 1px solid #90caf9;
+    }
+    .assistant-message {
+        background: #f5f5f5;
+        padding: 0.8rem 1.2rem;
+        border-radius: 18px 18px 18px 5px;
+        margin: 0.5rem 0;
+        margin-right: 20%;
+        border-left: 4px solid #0a5c3f;
+    }
+    .welcome-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        margin: 1rem 0;
+    }
+    .debug-box {
+        background: #1e1e1e;
+        color: #00ff00;
+        padding: 1rem;
+        border-radius: 10px;
+        font-family: monospace;
+        font-size: 0.8rem;
+        margin: 0.5rem 0;
+        overflow-x: auto;
+    }
+    .footer { text-align: center; padding: 2rem 0 0.5rem; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 2rem; }
+    .footer .disclaimer { color: #ff6b6b; font-size: 0.75rem; }
+    @media (max-width: 768px) {
+        .main-header h1 { font-size: 2rem; }
+        .user-message, .assistant-message { margin-left: 5%; margin-right: 5%; }
+    }
+</style>
+""", unsafe_allow_html=True)
 
-def load_metadata():
-    if os.path.exists(METADATA_FILE):
-        with open(METADATA_FILE, "r") as f:
-            return json.load(f)
-    return None
-
-def is_vectorstore_persistent():
-    return os.path.exists(VECTORSTORE_PATH) and os.path.exists(os.path.join(VECTORSTORE_PATH, "index.pkl"))
-
-def load_persistent_vectorstore():
-    if not RAG_AVAILABLE:
-        return None, None
-    try:
-        if is_vectorstore_persistent():
-            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-            vectorstore = Chroma(persist_directory=VECTORSTORE_PATH, embedding_function=embeddings)
-            metadata = load_metadata()
-            return vectorstore, metadata
-    except Exception as e:
-        print(f"Error loading vectorstore: {e}")
-    return None, None
-
-def clear_persistent_storage():
-    if os.path.exists(PERSIST_DIR):
-        shutil.rmtree(PERSIST_DIR)
-    ensure_storage_dir()
-
-# ==================== INITIALIZATION ====================
-def initialize_app():
-    if st.session_state.initialized:
-        return
-    try:
-        vectorstore, metadata = load_persistent_vectorstore()
-        if vectorstore and metadata:
-            st.session_state.vectorstore = vectorstore
-            st.session_state.docs_loaded = True
-            st.session_state.doc_name = metadata.get("doc_name", "Unknown")
-            st.session_state.initialized = True
-            if not st.session_state.messages:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": f"📚 Knowledge base loaded: {metadata.get('doc_name', 'Medical Documents')}\n\nI'm ready to answer your medical questions based on the uploaded documents."
-                })
-    except Exception as e:
-        print(f"Error initializing app: {e}")
-    st.session_state.initialized = True
-
-initialize_app()
-
-# ==================== ADMIN AUTHENTICATION ====================
+# ==================== ADMIN CHECK ====================
 def check_admin():
     if not st.session_state.is_admin:
         st.sidebar.markdown("---")
@@ -486,71 +144,90 @@ def check_admin():
             st.rerun()
         return True
 
-# ==================== GROQ SETUP ====================
-@st.cache_resource
+# ==================== GROQ WITH DEBUG ====================
 def get_groq_client():
+    """Get Groq client with detailed debugging"""
+    debug_info = []
+    
     try:
-        api_key = st.secrets.get("GROQ_API_KEY")
-        if api_key and GROQ_AVAILABLE:
-            return Groq(api_key=api_key)
-    except:
-        pass
-    return None
+        # Check if secrets exist
+        has_secrets = hasattr(st, 'secrets')
+        debug_info.append(f"🔍 st.secrets available: {has_secrets}")
+        
+        if has_secrets:
+            # Get API key
+            api_key = st.secrets.get("GROQ_API_KEY")
+            debug_info.append(f"🔑 GROQ_API_KEY exists: {api_key is not None}")
+            
+            if api_key:
+                debug_info.append(f"📝 API Key length: {len(api_key)}")
+                debug_info.append(f"📝 API Key starts with: {api_key[:10]}...")
+                
+                # Check if it's the placeholder
+                if "your_groq_api_key_here" in api_key or "example" in api_key:
+                    debug_info.append("⚠️ API Key looks like a placeholder!")
+                    return None, debug_info
+                
+                # Try to create client
+                try:
+                    client = Groq(api_key=api_key)
+                    debug_info.append("✅ Groq client created successfully")
+                    return client, debug_info
+                except Exception as e:
+                    debug_info.append(f"❌ Failed to create Groq client: {str(e)}")
+                    return None, debug_info
+            else:
+                debug_info.append("❌ GROQ_API_KEY is empty or None")
+                return None, debug_info
+        else:
+            debug_info.append("❌ st.secrets not available")
+            return None, debug_info
+            
+    except Exception as e:
+        debug_info.append(f"❌ Unexpected error: {str(e)}")
+        return None, debug_info
 
-# ==================== RAG FUNCTIONS ====================
-def process_pdf(file):
-    if not RAG_AVAILABLE:
-        return None, 0
+# ==================== PDF PROCESSING ====================
+def extract_text_from_pdf(file):
+    if not PDF_AVAILABLE:
+        return None
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(file.getvalue())
         tmp_path = tmp.name
     try:
-        loader = PyPDFLoader(tmp_path)
-        docs = loader.load()
-        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        chunks = splitter.split_documents(docs)
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory=VECTORSTORE_PATH)
-        vectorstore.persist()
-        save_metadata(file.name, len(chunks))
-        return vectorstore, len(chunks)
+        reader = PdfReader(tmp_path)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    except Exception as e:
+        st.error(f"Error reading PDF: {e}")
+        return None
     finally:
         os.unlink(tmp_path)
 
-def extract_symptoms(text: str) -> List[str]:
-    import re
-    patterns = [
-        (r"(headache|migraine)", "Headache"),
-        (r"(fever|temperature|chills)", "Fever"),
-        (r"(cough|phlegm)", "Cough"),
-        (r"(pain|ache|hurt)", "Pain"),
-        (r"(nausea|vomiting|dizzy)", "Nausea/Dizziness"),
-        (r"(rash|itch|redness)", "Rash"),
-        (r"(fatigue|tired|exhaustion)", "Fatigue"),
-        (r"(shortness of breath|difficulty breathing)", "Breathing Difficulty"),
-        (r"(chest pain)", "Chest Pain"),
-        (r"(palpitations|racing heart)", "Palpitations"),
-    ]
-    symptoms = set()
-    text_lower = text.lower()
-    for pattern, symptom in patterns:
-        if re.search(pattern, text_lower, re.IGNORECASE):
-            symptoms.add(symptom)
-    return list(symptoms)
-
-def check_emergency(text: str) -> List[str]:
-    keywords = ["chest pain", "shortness of breath", "severe bleeding", "loss of consciousness", "stroke", "heart attack", "seizure", "choking"]
-    found = []
-    text_lower = text.lower()
-    for keyword in keywords:
-        if keyword in text_lower:
-            found.append(keyword)
-    return found
+def search_in_text(query: str, text: str, max_chunks: int = 3):
+    if not text:
+        return []
+    paragraphs = text.split("\n\n")
+    query_words = set(query.lower().split())
+    scored = []
+    for i, para in enumerate(paragraphs):
+        if len(para.strip()) < 20:
+            continue
+        para_words = set(para.lower().split())
+        score = len(query_words.intersection(para_words))
+        if score > 0:
+            scored.append((score, i, para))
+    scored.sort(reverse=True)
+    return [para for _, _, para in scored[:max_chunks]]
 
 def get_response(query: str, context: str, history: str) -> str:
-    client = get_groq_client()
+    client, debug_info = get_groq_client()
+    
     if not client:
-        return "⚠️ Groq is not available. Please check your API key."
+        return f"❌ Error: Groq client not available.\n\nDebug Info:\n" + "\n".join(debug_info)
+    
     prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
 Use ONLY the provided context.
 
@@ -566,8 +243,7 @@ Guidelines:
 1. Answer based ONLY on context
 2. Be warm and empathetic
 3. If not in context, say so clearly
-4. Use bullet points
-5. Include medical disclaimer
+4. Include medical disclaimer
 
 YOUR RESPONSE:"""
     try:
@@ -588,9 +264,9 @@ st.markdown("""
     <div style="display: flex; align-items: center; gap: 1rem;">
         <span style="font-size: 3rem;">🩺</span>
         <div>
-            <h1>Dr. Medibot</h1>
-            <p>Your AI Medical Assistant — Evidence-Based Answers from Medical Documents</p>
-            <div class="header-badge">⚡ Powered by Groq AI &nbsp;•&nbsp; 🔒 100% Private</div>
+            <h1>Dr. Medibot - DEBUG MODE</h1>
+            <p>Your AI Medical Assistant</p>
+            <div class="header-badge">🔍 Debug Mode ON</div>
         </div>
     </div>
 </div>
@@ -602,7 +278,7 @@ with st.sidebar:
     <div style="text-align: center; padding: 0.5rem 0 1rem 0;">
         <span style="font-size: 3rem;">🩺</span>
         <h2 style="color: #0a5c3f; margin: 0;">Dr. Medibot</h2>
-        <p style="color: #888; font-size: 0.8rem;">v2.0 • AI Medical Assistant</p>
+        <p style="color: #888; font-size: 0.8rem;">v2.0 • DEBUG MODE</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -612,237 +288,111 @@ with st.sidebar:
     
     if is_admin:
         with st.container():
-            st.markdown("""
-            <div class="sidebar-section">
-                <h3>📄 Admin - Upload Document</h3>
-            """, unsafe_allow_html=True)
-            
-            st.info("👑 Upload medical documents. They will be stored permanently.")
+            st.markdown("### 📄 Admin - Upload Document")
+            st.info("Upload medical documents. They will be stored permanently.")
             
             uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if uploaded_file and st.button("📚 Upload", type="primary", use_container_width=True):
-                    with st.spinner("🔄 Processing and saving..."):
-                        try:
-                            vectorstore, chunk_count = process_pdf(uploaded_file)
-                            if vectorstore:
-                                st.session_state.vectorstore = vectorstore
-                                st.session_state.docs_loaded = True
-                                st.session_state.doc_name = uploaded_file.name
-                                st.success(f"✅ Saved {chunk_count} sections")
-                                st.balloons()
-                                st.rerun()
-                            else:
-                                st.error("❌ Failed to process document")
-                        except Exception as e:
-                            st.error(f"❌ Error: {str(e)}")
+            if uploaded_file and st.button("📚 Upload", type="primary", use_container_width=True):
+                with st.spinner("🔄 Extracting text from PDF..."):
+                    try:
+                        text = extract_text_from_pdf(uploaded_file)
+                        if text:
+                            st.session_state.doc_text = text
+                            st.session_state.docs_loaded = True
+                            st.session_state.doc_name = uploaded_file.name
+                            st.success(f"✅ Document loaded: {uploaded_file.name}")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to extract text from PDF")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
             
-            with col2:
-                if st.button("🗑️ Clear Storage", use_container_width=True):
-                    clear_persistent_storage()
-                    st.session_state.vectorstore = None
-                    st.session_state.docs_loaded = False
-                    st.session_state.doc_name = None
-                    st.success("✅ Storage cleared!")
-                    st.rerun()
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+            if st.button("🗑️ Clear Document", use_container_width=True):
+                st.session_state.doc_text = ""
+                st.session_state.docs_loaded = False
+                st.session_state.doc_name = None
+                st.success("✅ Document cleared!")
+                st.rerun()
         
         st.markdown("---")
     
+    # Status
     with st.container():
-        st.markdown("""
-        <div class="sidebar-section">
-            <h3>📊 Status</h3>
-        """, unsafe_allow_html=True)
-        
+        st.markdown("### 📊 Status")
         if st.session_state.docs_loaded:
-            st.success(f"✅ Knowledge Base Ready")
-            st.caption(f"📚 {st.session_state.doc_name}")
+            st.success(f"✅ Document loaded: {st.session_state.doc_name}")
         else:
             if is_admin:
-                st.warning("⚠️ No documents loaded")
+                st.warning("⚠️ No document loaded")
             else:
                 st.info("⏳ Knowledge base is being prepared")
         
-        client = get_groq_client()
+        # ===== DEBUG: Show API Key Status =====
+        st.markdown("### 🔑 API Key Debug")
+        
+        client, debug_info = get_groq_client()
+        
+        for line in debug_info:
+            if "✅" in line:
+                st.success(line)
+            elif "❌" in line:
+                st.error(line)
+            elif "⚠️" in line:
+                st.warning(line)
+            else:
+                st.code(line)
+        
         if client:
-            st.markdown("""
-            <div class="status-online">
-                <span class="dot"></span>
-                Groq API Connected
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption(f"Model: {st.secrets.get('GROQ_MODEL', 'llama-3.3-70b-versatile')}")
+            st.success("✅ Groq Client Ready!")
         else:
-            st.error("❌ Groq API Not Connected")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with st.container():
-        st.markdown("""
-        <div class="sidebar-section">
-            <h3>📈 Statistics</h3>
-        """, unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="number">{len(st.session_state.messages)}</div>
-                <div class="label">💬 Messages</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="number">{len(st.session_state.symptoms)}</div>
-                <div class="label">🩺 Symptoms</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    if st.session_state.messages:
-        with st.container():
-            st.markdown("""
-            <div class="sidebar-section">
-                <h3>💾 Export Chat</h3>
-            """, unsafe_allow_html=True)
-            
-            if st.button("📥 Download Chat", use_container_width=True):
-                chat_data = {
-                    "conversation_id": st.session_state.conversation_id,
-                    "timestamp": datetime.now().isoformat(),
-                    "messages": st.session_state.messages
-                }
-                st.download_button(
-                    label="Download JSON",
-                    data=json.dumps(chat_data, indent=2),
-                    file_name=f"chat_{st.session_state.conversation_id}.json",
-                    mime="application/json",
-                    use_container_width=True
-                )
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.error("❌ Groq Client NOT Ready")
     
     st.markdown("---")
+    
+    st.metric("💬 Messages", len(st.session_state.messages))
+    
     if st.button("🔄 New Session", use_container_width=True):
         st.session_state.messages = []
-        st.session_state.symptoms = []
-        st.session_state.emergency = False
         st.rerun()
 
-# ==================== WELCOME SECTION ====================
-if st.session_state.emergency:
-    st.markdown(f"""
-    <div class="emergency-warning">
-        <strong>🚨 EMERGENCY SYMPTOMS DETECTED:</strong> {', '.join(st.session_state.emergency)}
-        <br><br>
-        <strong>Please seek immediate medical attention!</strong>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ==================== WELCOME / CHAT AREA ====================
+# ==================== MAIN CONTENT ====================
 if not st.session_state.messages:
     st.markdown("""
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
-        <p style="color: #555; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant for evidence-based health information.</p>
-    """, unsafe_allow_html=True)
-    
-    # === ICON BOXES USING STREAMLIT COLUMNS ===
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown("""
-        <div class="icon-box">
-            <div class="icon">📚</div>
-            <div class="label">Medical Documents</div>
+        <p>Your AI-powered medical assistant for evidence-based health information.</p>
+        <p style="color: #ff6b6b; font-weight: bold;">🔍 DEBUG MODE ACTIVE</p>
+        
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0;">
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
+                <div style="font-size: 2.5rem;">📚</div>
+                <div style="font-weight: 600;">Medical Documents</div>
+            </div>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
+                <div style="font-size: 2.5rem;">💬</div>
+                <div style="font-weight: 600;">Ask Questions</div>
+            </div>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
+                <div style="font-size: 2.5rem;">🤖</div>
+                <div style="font-weight: 600;">AI Answers</div>
+            </div>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="icon-box">
-            <div class="icon">💬</div>
-            <div class="label">Ask Questions</div>
+        
+        <hr>
+        
+        <div style="background: #fff3e0; padding: 1rem; border-radius: 12px; border-left: 4px solid #ff9800;">
+            <strong>⚠️ Medical Disclaimer:</strong>
+            <span style="color: #666;">This is for educational purposes only. Always consult a healthcare professional.</span>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="icon-box">
-            <div class="icon">🤖</div>
-            <div class="label">AI Answers</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown("""
-        <div class="icon-box">
-            <div class="icon">⚠️</div>
-            <div class="label">Emergency Alerts</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # === SECTION DIVIDER ===
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
-    
-    # === HOW IT WORKS ===
-    st.markdown("#### ✨ How It Works")
-    st.markdown("""
-    <div class="how-it-works-box">
-        <ol>
-            <li><strong>Medical documents</strong> are pre-loaded by healthcare professionals</li>
-            <li><strong>Ask</strong> questions about symptoms, treatments, or conditions</li>
-            <li><strong>Get</strong> evidence-based answers from trusted medical sources</li>
-            <li><strong>Receive</strong> emergency warnings for critical symptoms</li>
-        </ol>
     </div>
     """, unsafe_allow_html=True)
-    
-    # === SECTION DIVIDER ===
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
-    
-    # === EXAMPLE QUESTIONS ===
-    st.markdown("#### 💡 Example Questions")
-    st.markdown("Click any question below to ask it:")
-    
-    questions = [
-        ("🩸 What are the symptoms of diabetes?", "What are the symptoms of diabetes?"),
-        ("❤️ How is hypertension treated?", "How is hypertension treated?"),
-        ("🫀 What causes chest pain?", "What causes chest pain?"),
-        ("💊 What medications are used for heart disease?", "What medications are used for heart disease?")
-    ]
-    
-    cols = st.columns(2)
-    for i, (display_text, actual_question) in enumerate(questions):
-        with cols[i % 2]:
-            if st.button(display_text, use_container_width=True, type="secondary"):
-                st.session_state._example_question = actual_question
-                st.rerun()
-    
-    # === SECTION DIVIDER ===
-    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
-    
-    # === DISCLAIMER ===
-    st.markdown("""
-    <div class="disclaimer-box">
-        <strong>⚠️ Medical Disclaimer:</strong>
-        <span>This is for educational purposes only. Always consult a healthcare professional for medical advice.</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
     
     if not st.session_state.docs_loaded:
-        st.info("📚 Medical knowledge base is being prepared. Please check back soon!")
+        st.info("📚 Please upload a medical document (admin only).")
 
 else:
-    # Chat history display
     for msg in st.session_state.messages:
         if msg["role"] == "user":
             st.markdown(f'<div class="user-message">👤 <strong>You</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
@@ -853,40 +403,19 @@ else:
 if st.session_state.docs_loaded:
     user_input = st.chat_input("Ask a question about medical topics...")
     
-    # Check if there's an example question from button click
-    if hasattr(st.session_state, '_example_question'):
-        user_input = st.session_state._example_question
-        del st.session_state._example_question
-    
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        emergency = check_emergency(user_input)
-        if emergency:
-            st.session_state.emergency = emergency
-        
-        symptoms = extract_symptoms(user_input)
-        st.session_state.symptoms.extend(symptoms)
-        
         with st.spinner("🩺 Dr. Medibot is thinking..."):
             try:
-                if RAG_AVAILABLE and st.session_state.vectorstore:
-                    results = st.session_state.vectorstore.similarity_search(user_input, k=4)
-                    if results:
-                        context = "\n\n".join([r.page_content for r in results])
-                        history = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-5:]])
-                        response = get_response(user_input, context, history)
-                        
-                        with st.expander("📚 Sources"):
-                            for i, doc in enumerate(results):
-                                page = doc.metadata.get("page", "Unknown")
-                                st.caption(f"Source {i+1} - Page {page}")
-                                st.text(doc.page_content[:300] + "...")
-                                st.divider()
-                    else:
-                        response = "I couldn't find relevant information in the medical documents. Please try rephrasing your question."
+                results = search_in_text(user_input, st.session_state.doc_text)
+                
+                if results:
+                    context = "\n\n".join(results)
+                    history = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-5:]])
+                    response = get_response(user_input, context, history)
                 else:
-                    response = f"Thanks for your question: '{user_input}'\n\nI'll search the medical documents for the answer."
+                    response = "I couldn't find relevant information in the document. Please try rephrasing your question."
                 
                 response += """
 
@@ -899,13 +428,12 @@ if st.session_state.docs_loaded:
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
 else:
-    st.info("📚 The medical knowledge base is being prepared. Please check back soon!")
+    st.info("📚 No document loaded. Admin needs to upload one first.")
 
 # ==================== FOOTER ====================
 st.markdown("""
 <div class="footer">
-    <p>🩺 Dr. Medibot v2.0 • Powered by Groq AI</p>
+    <p>🩺 Dr. Medibot v2.0 • 🔍 Debug Mode</p>
     <p class="disclaimer">⚠️ For educational purposes only. Always consult a healthcare professional.</p>
-    <p style="font-size: 0.7rem; color: #ccc;">Made by Meenakshi Mehta and Priyanshu Chand</p>
 </div>
 """, unsafe_allow_html=True)
