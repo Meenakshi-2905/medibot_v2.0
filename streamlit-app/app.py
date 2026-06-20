@@ -603,6 +603,7 @@ if st.session_state.emergency:
     """, unsafe_allow_html=True)
 
 if not st.session_state.messages:
+    # ADDED unsafe_allow_html=True HERE TO FIX YOUR FRONTEND LAYOUT
     st.markdown("""
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
