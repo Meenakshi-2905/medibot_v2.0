@@ -182,7 +182,28 @@ st.markdown("""
         font-weight: 700;
     }
     
-    .icon-large { font-size: 2.5rem; line-height: 1.2; }
+    .icon-box {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 12px;
+        text-align: center;
+        flex: 1;
+        min-width: 120px;
+        transition: all 0.3s;
+    }
+    .icon-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .icon-box .icon {
+        font-size: 2.5rem;
+        line-height: 1.2;
+    }
+    .icon-box .label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #333;
+    }
     
     .footer { text-align: center; padding: 2rem 0 0.5rem; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 2rem; }
     .footer p { color: #999; font-size: 0.8rem; margin: 0.2rem 0; }
@@ -554,7 +575,7 @@ with st.sidebar:
         st.session_state.emergency = False
         st.rerun()
 
-# ==================== MAIN CONTENT (PUBLIC) ====================
+# ==================== WELCOME / CHAT AREA (PUBLIC) ====================
 if st.session_state.emergency:
     st.markdown(f"""
     <div class="emergency-warning">
@@ -569,26 +590,44 @@ if not st.session_state.messages:
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
         <p class="subtitle">Your AI-powered medical assistant for evidence-based health information.</p>
-        
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0;">
-            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">&#128218;</div>
-                <div style="font-weight: 600; font-size: 0.85rem;">Medical Documents</div>
-            </div>
-            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">&#128172;</div>
-                <div style="font-weight: 600; font-size: 0.85rem;">Ask Questions</div>
-            </div>
-            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">&#129302;</div>
-                <div style="font-weight: 600; font-size: 0.85rem;">AI Answers</div>
-            </div>
-            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">&#9888;</div>
-                <div style="font-weight: 600; font-size: 0.85rem;">Emergency Alerts</div>
-            </div>
+    """, unsafe_allow_html=True)
+    
+    # ============ USING STREAMLIT COLUMNS (FOOLPROOF!) ============
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        <div class="icon-box">
+            <div class="icon">📚</div>
+            <div class="label">Medical Documents</div>
         </div>
-        
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="icon-box">
+            <div class="icon">💬</div>
+            <div class="label">Ask Questions</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="icon-box">
+            <div class="icon">🤖</div>
+            <div class="label">AI Answers</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown("""
+        <div class="icon-box">
+            <div class="icon">⚠️</div>
+            <div class="label">Emergency Alerts</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("""
         <hr>
         
         <h4>✨ How It Works</h4>
