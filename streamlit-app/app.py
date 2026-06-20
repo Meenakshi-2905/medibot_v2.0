@@ -267,7 +267,6 @@ def save_vectorstore(vectorstore):
     """Save vectorstore to persistent storage"""
     try:
         ensure_storage_dir()
-        # Chroma automatically persists
         vectorstore.persist()
         return True
     except Exception as e:
@@ -287,7 +286,6 @@ def initialize_app():
         return
     
     try:
-        # Try to load existing vectorstore
         vectorstore, metadata = load_persistent_vectorstore()
         
         if vectorstore and metadata:
@@ -296,7 +294,6 @@ def initialize_app():
             st.session_state.doc_name = metadata.get("doc_name", "Unknown")
             st.session_state.initialized = True
             
-            # Add a system message if vectorstore is loaded
             if not st.session_state.messages:
                 st.session_state.messages.append({
                     "role": "assistant",
@@ -307,7 +304,6 @@ def initialize_app():
     
     st.session_state.initialized = True
 
-# Run initialization
 initialize_app()
 
 # ==================== ADMIN AUTHENTICATION ====================
@@ -365,19 +361,14 @@ def process_pdf(file):
         chunks = splitter.split_documents(docs)
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
-        # Save to persistent directory
         vectorstore = Chroma.from_documents(
             chunks, 
             embeddings,
             persist_directory=VECTORSTORE_PATH
         )
         vectorstore.persist()
-        
-        # Save metadata
         save_metadata(file.name, len(chunks))
-        
         return vectorstore, len(chunks)
-    
     finally:
         os.unlink(tmp_path)
 
@@ -474,7 +465,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # === ADMIN SECTION ===
     is_admin = check_admin()
     
     if is_admin:
@@ -519,7 +509,6 @@ with st.sidebar:
         
         st.markdown("---")
     
-    # === STATUS SECTION ===
     with st.container():
         st.markdown("""
         <div class="sidebar-section">
@@ -549,7 +538,6 @@ with st.sidebar:
         
         st.markdown("</div>", unsafe_allow_html=True)
     
-    # === STATISTICS ===
     with st.container():
         st.markdown("""
         <div class="sidebar-section">
@@ -574,7 +562,6 @@ with st.sidebar:
         
         st.markdown("</div>", unsafe_allow_html=True)
     
-    # === EXPORT ===
     if st.session_state.messages:
         with st.container():
             st.markdown("""
@@ -598,7 +585,6 @@ with st.sidebar:
             
             st.markdown("</div>", unsafe_allow_html=True)
     
-    # === NEW SESSION ===
     st.markdown("---")
     if st.button("🔄 New Session", use_container_width=True):
         st.session_state.messages = []
@@ -607,7 +593,6 @@ with st.sidebar:
         st.rerun()
 
 # ==================== MAIN CONTENT (PUBLIC) ====================
-# Emergency Warning
 if st.session_state.emergency:
     st.markdown(f"""
     <div class="emergency-warning">
@@ -617,7 +602,6 @@ if st.session_state.emergency:
     </div>
     """, unsafe_allow_html=True)
 
-# Welcome / Chat
 if not st.session_state.messages:
     st.markdown("""
     <div class="welcome-card">
@@ -682,7 +666,6 @@ else:
         else:
             st.markdown(f'<div class="assistant-message">🩺 <strong>Dr. Medibot</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
-# === CHAT INPUT (PUBLIC) ===
 if st.session_state.docs_loaded:
     user_input = st.chat_input("Ask a question about medical topics...")
     
@@ -729,7 +712,6 @@ if st.session_state.docs_loaded:
 else:
     st.info("📚 The medical knowledge base is being prepared. Please check back soon!")
 
-# ==================== FOOTER ====================
 st.markdown("""
 <div class="footer">
     <p>🩺 Dr. Medibot v2.0 • Powered by Groq AI</p>
