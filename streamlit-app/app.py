@@ -1,6 +1,6 @@
 """
 🩺 Dr. Medibot - Complete Working Version
-Fixed: Message too long error
+Fixed: Document reading with debug
 """
 
 import streamlit as st
@@ -282,37 +282,126 @@ def get_groq_client():
         pass
     return None
 
-# ==================== FIXED RESPONSE FUNCTION ====================
+# ==================== FIXED: DOCUMENT READING WITH DEBUG ====================
+def extract_text_from_pdf(file):
+    """Extract text from PDF using pypdf"""
+    if not PDF_AVAILABLE:
+        st.error("❌ pypdf not installed!")
+        return None
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(file.getvalue())
+        tmp_path = tmp.name
+    
+    try:
+        reader = PdfReader(tmp_path)
+        text = ""
+        total_pages = len(reader.pages)
+        st.sidebar.info(f"📄 PDF has {total_pages} pages")
+        
+        for i, page in enumerate(reader.pages):
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+            else:
+                st.sidebar.warning(f"⚠️ Page {i+1} has no extractable text (might be scanned)")
+        
+        if text:
+            st.sidebar.success(f"✅ Extracted {len(text)} characters")
+        else:
+            st.sidebar.error("❌ No text extracted! PDF might be scanned images.")
+        
+        return text
+    except Exception as e:
+        st.sidebar.error(f"❌ Error reading PDF: {e}")
+        return None
+    finally:
+        os.unlink(tmp_path)
+
+def search_in_text(query: str, text: str, max_chunks: int = 3):
+    """Search for relevant text in the document"""
+    if not text:
+        st.sidebar.warning("⚠️ Document text is empty!")
+        return []
+    
+    st.sidebar.info(f"📄 Document length: {len(text)} characters")
+    
+    # Split into paragraphs
+    paragraphs = text.split("\n\n")
+    st.sidebar.info(f"📄 Found {len(paragraphs)} paragraphs")
+    
+    # Search
+    query_words = set(query.lower().split())
+    scored = []
+    
+    for i, para in enumerate(paragraphs):
+        if len(para.strip()) < 20:
+            continue
+        para_words = set(para.lower().split())
+        score = len(query_words.intersection(para_words))
+        if score > 0:
+            scored.append((score, i, para))
+    
+    scored.sort(reverse=True)
+    
+    if scored:
+        st.sidebar.success(f"✅ Found {len(scored)} relevant paragraphs")
+        # Show first result preview
+        preview = scored[0][2][:200]
+        st.sidebar.text(f"Preview: {preview}...")
+    else:
+        st.sidebar.warning("❌ No relevant paragraphs found")
+        st.sidebar.text(f"Search words: {list(query_words)[:5]}")
+    
+    return [para for _, _, para in scored[:max_chunks]]
+
 def get_response(query: str, context: str, history: str) -> str:
     client = get_groq_client()
     if not client:
         return "⚠️ Groq is not available. Please check your API key."
     
-    # --- TRIM CONTEXT TO AVOID TOO LONG ---
+    st.sidebar.info(f"📝 Context length: {len(context)} characters")
+    
+    if not context or len(context) < 50:
+        st.sidebar.warning("⚠️ Very little context found!")
+        return """I couldn't find enough information in your document to answer your question.
+
+**Possible reasons:**
+1. The PDF might be scanned (text not extractable)
+2. The document might not contain relevant information
+3. The text extraction might have failed
+
+**Try:**
+- Uploading a different PDF (text-based, not scanned)
+- Asking about a topic that's in your document
+- Checking if your PDF has selectable text
+
+---
+⚠️ **Medical Disclaimer:** This information is for educational purposes only. Always consult a qualified healthcare provider."""
+    
     if len(context) > 2000:
         context = context[:2000] + "..."
     
-    # --- TRIM HISTORY ---
     history_lines = history.split("\n")
-    if len(history_lines) > 6:  # Last 3 messages
+    if len(history_lines) > 6:
         history_lines = history_lines[-6:]
         history = "\n".join(history_lines)
     
     prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
-Use ONLY the provided context.
+Use ONLY the provided context from the user's medical document.
 
-CONTEXT:
+CONTEXT (from user's document):
 {context}
 
-HISTORY:
+CONVERSATION HISTORY:
 {history}
 
-USER: {query}
+USER QUESTION: {query}
 
-Guidelines:
-1. Answer based ONLY on context
-2. Be warm and empathetic
-3. If not in context, say so clearly
+Instructions:
+1. Answer based SOLELY on the context above
+2. If the context doesn't contain the answer, say "I couldn't find information about this in your document"
+3. Be warm and empathetic
 4. Keep response under 400 words
 5. Include medical disclaimer
 
@@ -329,41 +418,6 @@ YOUR RESPONSE:"""
         return response.choices[0].message.content
     except Exception as e:
         return f"❌ Error: {str(e)}"
-
-# ==================== PDF FUNCTIONS ====================
-def extract_text_from_pdf(file):
-    if not PDF_AVAILABLE:
-        return None
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(file.getvalue())
-        tmp_path = tmp.name
-    try:
-        reader = PdfReader(tmp_path)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        return text
-    except Exception as e:
-        st.error(f"Error reading PDF: {e}")
-        return None
-    finally:
-        os.unlink(tmp_path)
-
-def search_in_text(query: str, text: str, max_chunks: int = 3):
-    if not text:
-        return []
-    paragraphs = text.split("\n\n")
-    query_words = set(query.lower().split())
-    scored = []
-    for para in paragraphs:
-        if len(para.strip()) < 20:
-            continue
-        para_words = set(para.lower().split())
-        score = len(query_words.intersection(para_words))
-        if score > 0:
-            scored.append((score, para))
-    scored.sort(reverse=True)
-    return [para for _, para in scored[:max_chunks]]
 
 # ==================== HEADER ====================
 st.markdown("""
@@ -408,7 +462,7 @@ with st.sidebar:
                 with st.spinner("🔄 Extracting text from PDF..."):
                     try:
                         text = extract_text_from_pdf(uploaded_file)
-                        if text:
+                        if text and len(text) > 100:
                             st.session_state.doc_text = text
                             st.session_state.docs_loaded = True
                             st.session_state.doc_name = uploaded_file.name
@@ -416,7 +470,8 @@ with st.sidebar:
                             st.balloons()
                             st.rerun()
                         else:
-                            st.error("❌ Failed to extract text from PDF")
+                            st.error("❌ No text extracted! PDF might be scanned images.")
+                            st.info("Try uploading a text-based PDF (not scanned).")
                     except Exception as e:
                         st.error(f"❌ Error: {str(e)}")
             
@@ -431,6 +486,7 @@ with st.sidebar:
         
         st.markdown("---")
     
+    # ===== STATUS =====
     with st.container():
         st.markdown("""
         <div class="sidebar-section">
@@ -438,13 +494,14 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
         if st.session_state.docs_loaded:
-            st.success(f"✅ Knowledge Base Ready")
+            st.success(f"✅ Document loaded")
             st.caption(f"📚 {st.session_state.doc_name}")
+            st.caption(f"📄 {len(st.session_state.doc_text)} characters")
         else:
             if is_admin:
-                st.warning("⚠️ No documents loaded")
+                st.warning("⚠️ No document loaded")
             else:
-                st.info("⏳ Knowledge base is being prepared")
+                st.info("⏳ No document loaded")
         
         client = get_groq_client()
         if client:
@@ -457,6 +514,26 @@ with st.sidebar:
             st.caption(f"Model: {st.secrets.get('GROQ_MODEL', 'llama-3.3-70b-versatile')}")
         else:
             st.error("❌ Groq API Not Connected")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ===== DOCUMENT DEBUG =====
+    with st.container():
+        st.markdown("""
+        <div class="sidebar-section">
+            <h3>🔍 Document Debug</h3>
+        """, unsafe_allow_html=True)
+        
+        if st.session_state.docs_loaded:
+            doc_len = len(st.session_state.doc_text)
+            if doc_len > 0:
+                st.success(f"✅ Text extracted: {doc_len} chars")
+                # Show first 200 characters
+                st.text_area("Preview:", st.session_state.doc_text[:300], height=100)
+            else:
+                st.error("❌ Document text is empty!")
+        else:
+            st.warning("⚠️ No document loaded")
         
         st.markdown("</div>", unsafe_allow_html=True)
     
@@ -604,7 +681,7 @@ if st.session_state.docs_loaded:
                     history = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-3:]])
                     response = get_response(user_input, context, history)
                 else:
-                    response = "I couldn't find relevant information in the document. Please try rephrasing your question."
+                    response = "I couldn't find information about this in your document. Please try asking about a topic that's in the document, or upload a different PDF."
                 
                 response += """
 
