@@ -1,5 +1,6 @@
 """
 🩺 Dr. Medibot - Complete Working Version
+Fixed: Message too long error
 """
 
 import streamlit as st
@@ -36,15 +37,9 @@ st.set_page_config(
 # ==================== CUSTOM CSS ====================
 st.markdown("""
 <style>
-    /* Reset */
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    .stApp { background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 50%, #bcccdc 100%); }
     
-    /* Background */
-    .stApp {
-        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 50%, #bcccdc 100%);
-    }
-    
-    /* Main Header */
     .main-header {
         background: linear-gradient(135deg, #0a5c3f 0%, #1a7a5a 40%, #2d8f6f 80%, #3da87a 100%);
         padding: 2rem 2.5rem;
@@ -54,16 +49,8 @@ st.markdown("""
         box-shadow: 0 10px 40px rgba(10, 92, 63, 0.35);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .main-header h1 {
-        font-size: 2.8rem;
-        font-weight: 800;
-        margin: 0;
-    }
-    .main-header p {
-        opacity: 0.92;
-        font-size: 1.1rem;
-        margin: 0.3rem 0 0 0;
-    }
+    .main-header h1 { font-size: 2.8rem; font-weight: 800; margin: 0; }
+    .main-header p { opacity: 0.92; font-size: 1.1rem; margin: 0.3rem 0 0 0; }
     .header-badge {
         display: inline-block;
         background: rgba(255,255,255,0.2);
@@ -75,10 +62,6 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.15);
     }
     
-    /* Sidebar */
-    .css-1d391kg, .css-1lcbmhc {
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    }
     .sidebar-section {
         background: white;
         padding: 1.2rem;
@@ -87,14 +70,8 @@ st.markdown("""
         box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         border: 1px solid rgba(0,0,0,0.04);
     }
-    .sidebar-section h3 {
-        color: #0a5c3f;
-        font-size: 1rem;
-        font-weight: 700;
-        margin-bottom: 0.8rem;
-    }
+    .sidebar-section h3 { color: #0a5c3f; font-size: 1rem; font-weight: 700; margin-bottom: 0.8rem; }
     
-    /* Chat Messages */
     .user-message {
         background: linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%);
         padding: 0.8rem 1.2rem;
@@ -127,7 +104,6 @@ st.markdown("""
         to { opacity: 1; transform: translateX(0); }
     }
     
-    /* Emergency Warning */
     .emergency-warning {
         background: linear-gradient(135deg, #ff1744 0%, #d50000 100%);
         color: white;
@@ -143,7 +119,6 @@ st.markdown("""
         50% { opacity: 0.92; transform: scale(1.01); }
     }
     
-    /* Welcome Card */
     .welcome-card {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(20px);
@@ -153,14 +128,8 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.5);
         margin: 1rem 0;
     }
-    .welcome-card h3 {
-        color: #0a5c3f;
-        font-size: 1.6rem;
-        font-weight: 700;
-        margin-bottom: 0.3rem;
-    }
+    .welcome-card h3 { color: #0a5c3f; font-size: 1.6rem; font-weight: 700; margin-bottom: 0.3rem; }
     
-    /* Icon Boxes */
     .icon-box {
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         padding: 1.2rem 0.8rem;
@@ -176,18 +145,9 @@ st.markdown("""
         box-shadow: 0 8px 25px rgba(10, 92, 63, 0.12);
         border-color: rgba(10, 92, 63, 0.15);
     }
-    .icon-box .icon {
-        font-size: 2.5rem;
-        line-height: 1.2;
-        margin-bottom: 0.3rem;
-    }
-    .icon-box .label {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #1a2a3a;
-    }
+    .icon-box .icon { font-size: 2.5rem; line-height: 1.2; margin-bottom: 0.3rem; }
+    .icon-box .label { font-weight: 600; font-size: 0.85rem; color: #1a2a3a; }
     
-    /* Stat Cards */
     .stat-card {
         background: white;
         padding: 1rem;
@@ -196,17 +156,9 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         border: 1px solid rgba(0,0,0,0.04);
     }
-    .stat-card .number {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #0a5c3f;
-    }
-    .stat-card .label {
-        font-size: 0.8rem;
-        color: #888;
-    }
+    .stat-card .number { font-size: 1.8rem; font-weight: 700; color: #0a5c3f; }
+    .stat-card .label { font-size: 0.8rem; color: #888; }
     
-    /* Status Online */
     .status-online {
         display: inline-flex;
         align-items: center;
@@ -230,7 +182,6 @@ st.markdown("""
         50% { opacity: 0.3; }
     }
     
-    /* Admin Badge */
     .admin-badge {
         display: inline-block;
         background: linear-gradient(135deg, #ffd700 0%, #f9a825 100%);
@@ -242,7 +193,6 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
     }
     
-    /* Section Divider */
     .section-divider {
         border: none;
         height: 2px;
@@ -250,7 +200,6 @@ st.markdown("""
         margin: 1.5rem 0;
     }
     
-    /* How It Works Box */
     .how-it-works-box {
         background: #f8fafc;
         padding: 1rem 1.5rem;
@@ -258,17 +207,9 @@ st.markdown("""
         border-left: 4px solid #0a5c3f;
         margin: 1rem 0;
     }
-    .how-it-works-box ol {
-        color: #333;
-        line-height: 2.2;
-        margin-left: 0;
-        padding-left: 1.2rem;
-    }
-    .how-it-works-box ol li strong {
-        color: #0a5c3f;
-    }
+    .how-it-works-box ol { color: #333; line-height: 2.2; margin-left: 0; padding-left: 1.2rem; }
+    .how-it-works-box ol li strong { color: #0a5c3f; }
     
-    /* Disclaimer Box */
     .disclaimer-box {
         background: #fff3e0;
         padding: 1rem 1.2rem;
@@ -276,46 +217,18 @@ st.markdown("""
         border-left: 4px solid #ff9800;
         margin: 1rem 0;
     }
-    .disclaimer-box strong {
-        color: #e65100;
-    }
-    .disclaimer-box span {
-        color: #555;
-        font-size: 0.9rem;
-    }
+    .disclaimer-box strong { color: #e65100; }
+    .disclaimer-box span { color: #555; font-size: 0.9rem; }
     
-    /* Footer */
-    .footer {
-        text-align: center;
-        padding: 2rem 0 0.5rem;
-        border-top: 1px solid rgba(0,0,0,0.06);
-        margin-top: 2rem;
-    }
-    .footer p {
-        color: #888;
-        font-size: 0.8rem;
-        margin: 0.2rem 0;
-    }
-    .footer .disclaimer {
-        color: #e57373;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
+    .footer { text-align: center; padding: 2rem 0 0.5rem; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 2rem; }
+    .footer p { color: #888; font-size: 0.8rem; margin: 0.2rem 0; }
+    .footer .disclaimer { color: #e57373; font-size: 0.75rem; font-weight: 500; }
     
     @media (max-width: 768px) {
         .main-header h1 { font-size: 2rem; }
         .main-header { padding: 1.5rem; }
-        .user-message, .assistant-message {
-            margin-left: 5% !important;
-            margin-right: 5% !important;
-        }
+        .user-message, .assistant-message { margin-left: 5% !important; margin-right: 5% !important; }
         .welcome-card { padding: 1.2rem; }
-    }
-    
-    @media (max-width: 480px) {
-        .main-header h1 { font-size: 1.5rem; }
-        .icon-box .icon { font-size: 2rem; }
-        .icon-box .label { font-size: 0.75rem; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -369,6 +282,54 @@ def get_groq_client():
         pass
     return None
 
+# ==================== FIXED RESPONSE FUNCTION ====================
+def get_response(query: str, context: str, history: str) -> str:
+    client = get_groq_client()
+    if not client:
+        return "⚠️ Groq is not available. Please check your API key."
+    
+    # --- TRIM CONTEXT TO AVOID TOO LONG ---
+    if len(context) > 2000:
+        context = context[:2000] + "..."
+    
+    # --- TRIM HISTORY ---
+    history_lines = history.split("\n")
+    if len(history_lines) > 6:  # Last 3 messages
+        history_lines = history_lines[-6:]
+        history = "\n".join(history_lines)
+    
+    prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
+Use ONLY the provided context.
+
+CONTEXT:
+{context}
+
+HISTORY:
+{history}
+
+USER: {query}
+
+Guidelines:
+1. Answer based ONLY on context
+2. Be warm and empathetic
+3. If not in context, say so clearly
+4. Keep response under 400 words
+5. Include medical disclaimer
+
+YOUR RESPONSE:"""
+    
+    try:
+        model = st.secrets.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 # ==================== PDF FUNCTIONS ====================
 def extract_text_from_pdf(file):
     if not PDF_AVAILABLE:
@@ -403,41 +364,6 @@ def search_in_text(query: str, text: str, max_chunks: int = 3):
             scored.append((score, para))
     scored.sort(reverse=True)
     return [para for _, para in scored[:max_chunks]]
-
-def get_response(query: str, context: str, history: str) -> str:
-    client = get_groq_client()
-    if not client:
-        return "⚠️ Groq is not available. Please check your API key."
-    
-    prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
-Use ONLY the provided context.
-
-CONTEXT:
-{context}
-
-HISTORY:
-{history}
-
-USER: {query}
-
-Guidelines:
-1. Answer based ONLY on context
-2. Be warm and empathetic
-3. If not in context, say so clearly
-4. Include medical disclaimer
-
-YOUR RESPONSE:"""
-    try:
-        model = st.secrets.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=1024,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
 # ==================== HEADER ====================
 st.markdown("""
@@ -571,7 +497,6 @@ if not st.session_state.messages:
         <p style="color: #555; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant for evidence-based health information.</p>
     """, unsafe_allow_html=True)
     
-    # ICON BOXES
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -608,7 +533,6 @@ if not st.session_state.messages:
     
     st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
-    # HOW IT WORKS
     st.markdown("#### ✨ How It Works")
     st.markdown("""
     <div class="how-it-works-box">
@@ -623,7 +547,6 @@ if not st.session_state.messages:
     
     st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
-    # EXAMPLE QUESTIONS
     st.markdown("#### 💡 Example Questions")
     
     questions = [
@@ -642,7 +565,6 @@ if not st.session_state.messages:
     
     st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
-    # DISCLAIMER
     st.markdown("""
     <div class="disclaimer-box">
         <strong>⚠️ Medical Disclaimer:</strong>
@@ -679,7 +601,7 @@ if st.session_state.docs_loaded:
                 
                 if results:
                     context = "\n\n".join(results)
-                    history = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-5:]])
+                    history = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-3:]])
                     response = get_response(user_input, context, history)
                 else:
                     response = "I couldn't find relevant information in the document. Please try rephrasing your question."
