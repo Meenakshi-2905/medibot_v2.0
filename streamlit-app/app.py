@@ -1,6 +1,6 @@
 """
 🩺 Dr. Medibot - Complete Working Version
-Fixed: Document reading with debug
+Fixed: Uses PyMuPDF for better PDF reading
 """
 
 import streamlit as st
@@ -18,7 +18,7 @@ except ImportError:
     GROQ_AVAILABLE = False
 
 try:
-    from pypdf import PdfReader
+    import fitz  # PyMuPDF
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
@@ -282,11 +282,13 @@ def get_groq_client():
         pass
     return None
 
-# ==================== FIXED: DOCUMENT READING WITH DEBUG ====================
+# ==================== PDF EXTRACTION (UPDATED) ====================
 def extract_text_from_pdf(file):
-    """Extract text from PDF using pypdf"""
-    if not PDF_AVAILABLE:
-        st.error("❌ pypdf not installed!")
+    """Extract text from PDF using PyMuPDF"""
+    try:
+        import fitz
+    except ImportError:
+        st.error("❌ PyMuPDF not installed! Run: pip install pymupdf")
         return None
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -294,116 +296,105 @@ def extract_text_from_pdf(file):
         tmp_path = tmp.name
     
     try:
-        reader = PdfReader(tmp_path)
-        text = ""
-        total_pages = len(reader.pages)
+        doc = fitz.open(tmp_path)
+        total_pages = len(doc)
         st.sidebar.info(f"📄 PDF has {total_pages} pages")
         
-        for i, page in enumerate(reader.pages):
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-            else:
-                st.sidebar.warning(f"⚠️ Page {i+1} has no extractable text (might be scanned)")
+        text = ""
+        text_pages = 0
         
-        if text:
-            st.sidebar.success(f"✅ Extracted {len(text)} characters")
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            page_text = page.get_text()
+            
+            if page_text and len(page_text.strip()) > 10:
+                text += page_text + "\n"
+                text_pages += 1
+            else:
+                st.sidebar.warning(f"⚠️ Page {page_num+1} has no extractable text")
+        
+        doc.close()
+        
+        if text and len(text) > 100:
+            st.sidebar.success(f"✅ Extracted {len(text)} chars from {text_pages} pages")
+            st.sidebar.text(f"Preview: {text[:200]}...")
+            return text
         else:
             st.sidebar.error("❌ No text extracted! PDF might be scanned images.")
-        
-        return text
+            return None
+            
     except Exception as e:
-        st.sidebar.error(f"❌ Error reading PDF: {e}")
+        st.sidebar.error(f"❌ Error: {e}")
         return None
     finally:
-        os.unlink(tmp_path)
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 def search_in_text(query: str, text: str, max_chunks: int = 3):
-    """Search for relevant text in the document"""
     if not text:
-        st.sidebar.warning("⚠️ Document text is empty!")
         return []
-    
-    st.sidebar.info(f"📄 Document length: {len(text)} characters")
     
     # Split into paragraphs
     paragraphs = text.split("\n\n")
-    st.sidebar.info(f"📄 Found {len(paragraphs)} paragraphs")
+    paragraphs = [p for p in paragraphs if len(p.strip()) > 20]
     
     # Search
     query_words = set(query.lower().split())
     scored = []
     
-    for i, para in enumerate(paragraphs):
-        if len(para.strip()) < 20:
-            continue
+    for para in paragraphs:
         para_words = set(para.lower().split())
         score = len(query_words.intersection(para_words))
         if score > 0:
-            scored.append((score, i, para))
+            scored.append((score, para))
     
     scored.sort(reverse=True)
     
     if scored:
-        st.sidebar.success(f"✅ Found {len(scored)} relevant paragraphs")
-        # Show first result preview
-        preview = scored[0][2][:200]
-        st.sidebar.text(f"Preview: {preview}...")
+        st.sidebar.success(f"✅ Found {len(scored)} relevant sections")
     else:
-        st.sidebar.warning("❌ No relevant paragraphs found")
-        st.sidebar.text(f"Search words: {list(query_words)[:5]}")
+        st.sidebar.warning("❌ No relevant text found")
     
-    return [para for _, _, para in scored[:max_chunks]]
+    return [para for _, para in scored[:max_chunks]]
 
 def get_response(query: str, context: str, history: str) -> str:
     client = get_groq_client()
     if not client:
-        return "⚠️ Groq is not available. Please check your API key."
-    
-    st.sidebar.info(f"📝 Context length: {len(context)} characters")
+        return "⚠️ Groq is not available."
     
     if not context or len(context) < 50:
-        st.sidebar.warning("⚠️ Very little context found!")
-        return """I couldn't find enough information in your document to answer your question.
+        return """I couldn't find enough information in your document.
 
 **Possible reasons:**
-1. The PDF might be scanned (text not extractable)
-2. The document might not contain relevant information
-3. The text extraction might have failed
+1. The PDF is scanned (images, not text)
+2. The document doesn't contain this topic
+3. The PDF is encrypted
 
 **Try:**
-- Uploading a different PDF (text-based, not scanned)
-- Asking about a topic that's in your document
-- Checking if your PDF has selectable text
+- Using a text-based PDF
+- Asking about a topic in your document
+- Converting scanned PDF using OCR
 
 ---
-⚠️ **Medical Disclaimer:** This information is for educational purposes only. Always consult a qualified healthcare provider."""
+⚠️ Medical Disclaimer: For educational purposes only."""
     
     if len(context) > 2000:
         context = context[:2000] + "..."
     
-    history_lines = history.split("\n")
-    if len(history_lines) > 6:
-        history_lines = history_lines[-6:]
-        history = "\n".join(history_lines)
-    
-    prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
-Use ONLY the provided context from the user's medical document.
+    prompt = f"""You are Dr. Medibot. Answer based ONLY on the context below.
 
-CONTEXT (from user's document):
+CONTEXT:
 {context}
 
-CONVERSATION HISTORY:
+HISTORY:
 {history}
 
-USER QUESTION: {query}
+QUESTION: {query}
 
-Instructions:
-1. Answer based SOLELY on the context above
-2. If the context doesn't contain the answer, say "I couldn't find information about this in your document"
-3. Be warm and empathetic
-4. Keep response under 400 words
-5. Include medical disclaimer
+Rules:
+1. ONLY use the context above
+2. If not in context, say "I couldn't find this in your document"
+3. Be empathetic and professional
 
 YOUR RESPONSE:"""
     
@@ -470,8 +461,7 @@ with st.sidebar:
                             st.balloons()
                             st.rerun()
                         else:
-                            st.error("❌ No text extracted! PDF might be scanned images.")
-                            st.info("Try uploading a text-based PDF (not scanned).")
+                            st.error("❌ No text extracted! PDF might be scanned.")
                     except Exception as e:
                         st.error(f"❌ Error: {str(e)}")
             
@@ -486,7 +476,7 @@ with st.sidebar:
         
         st.markdown("---")
     
-    # ===== STATUS =====
+    # STATUS
     with st.container():
         st.markdown("""
         <div class="sidebar-section">
@@ -498,10 +488,7 @@ with st.sidebar:
             st.caption(f"📚 {st.session_state.doc_name}")
             st.caption(f"📄 {len(st.session_state.doc_text)} characters")
         else:
-            if is_admin:
-                st.warning("⚠️ No document loaded")
-            else:
-                st.info("⏳ No document loaded")
+            st.warning("⚠️ No document loaded")
         
         client = get_groq_client()
         if client:
@@ -511,53 +498,8 @@ with st.sidebar:
                 Groq API Connected
             </div>
             """, unsafe_allow_html=True)
-            st.caption(f"Model: {st.secrets.get('GROQ_MODEL', 'llama-3.3-70b-versatile')}")
         else:
             st.error("❌ Groq API Not Connected")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ===== DOCUMENT DEBUG =====
-    with st.container():
-        st.markdown("""
-        <div class="sidebar-section">
-            <h3>🔍 Document Debug</h3>
-        """, unsafe_allow_html=True)
-        
-        if st.session_state.docs_loaded:
-            doc_len = len(st.session_state.doc_text)
-            if doc_len > 0:
-                st.success(f"✅ Text extracted: {doc_len} chars")
-                # Show first 200 characters
-                st.text_area("Preview:", st.session_state.doc_text[:300], height=100)
-            else:
-                st.error("❌ Document text is empty!")
-        else:
-            st.warning("⚠️ No document loaded")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with st.container():
-        st.markdown("""
-        <div class="sidebar-section">
-            <h3>📈 Statistics</h3>
-        """, unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="number">{len(st.session_state.messages)}</div>
-                <div class="label">💬 Messages</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="number">0</div>
-                <div class="label">🩺 Symptoms</div>
-            </div>
-            """, unsafe_allow_html=True)
         
         st.markdown("</div>", unsafe_allow_html=True)
     
@@ -571,7 +513,7 @@ if not st.session_state.messages:
     st.markdown("""
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
-        <p style="color: #555; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant for evidence-based health information.</p>
+        <p style="color: #555; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant.</p>
     """, unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
@@ -614,10 +556,9 @@ if not st.session_state.messages:
     st.markdown("""
     <div class="how-it-works-box">
         <ol>
-            <li><strong>Medical documents</strong> are uploaded by healthcare professionals</li>
-            <li><strong>Ask</strong> questions about symptoms, treatments, or conditions</li>
-            <li><strong>Get</strong> evidence-based answers from trusted medical sources</li>
-            <li><strong>Receive</strong> emergency warnings for critical symptoms</li>
+            <li><strong>Upload</strong> a medical PDF (text-based, not scanned)</li>
+            <li><strong>Ask</strong> questions about the content</li>
+            <li><strong>Get</strong> answers from your document</li>
         </ol>
     </div>
     """, unsafe_allow_html=True)
@@ -627,10 +568,9 @@ if not st.session_state.messages:
     st.markdown("#### 💡 Example Questions")
     
     questions = [
-        ("🩸 What are the symptoms of diabetes?", "What are the symptoms of diabetes?"),
-        ("❤️ How is hypertension treated?", "How is hypertension treated?"),
-        ("🫀 What causes chest pain?", "What causes chest pain?"),
-        ("💊 What medications are used for heart disease?", "What medications are used for heart disease?")
+        ("What is Acute Pericarditis?", "What is Acute Pericarditis?"),
+        ("What are the symptoms?", "What are the symptoms?"),
+        ("How is it treated?", "How is it treated?")
     ]
     
     cols = st.columns(2)
@@ -645,7 +585,7 @@ if not st.session_state.messages:
     st.markdown("""
     <div class="disclaimer-box">
         <strong>⚠️ Medical Disclaimer:</strong>
-        <span>This is for educational purposes only. Always consult a healthcare professional for medical advice.</span>
+        <span>For educational purposes only. Always consult a healthcare professional.</span>
     </div>
     """, unsafe_allow_html=True)
     
@@ -681,7 +621,7 @@ if st.session_state.docs_loaded:
                     history = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages[-3:]])
                     response = get_response(user_input, context, history)
                 else:
-                    response = "I couldn't find information about this in your document. Please try asking about a topic that's in the document, or upload a different PDF."
+                    response = "I couldn't find information about this in your document. Please try asking about a topic that's in the document."
                 
                 response += """
 
