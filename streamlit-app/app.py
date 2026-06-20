@@ -46,31 +46,79 @@ st.set_page_config(
 # ==================== CUSTOM CSS ====================
 st.markdown("""
 <style>
+    /* ===== RESET & BASE ===== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e8edf5 100%); }
     
+    .stApp {
+        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 50%, #bcccdc 100%);
+    }
+    
+    /* ===== MAIN HEADER ===== */
     .main-header {
-        background: linear-gradient(135deg, #0a5c3f 0%, #1a7a5a 50%, #2d8f6f 100%);
+        background: linear-gradient(135deg, #0a5c3f 0%, #1a7a5a 40%, #2d8f6f 80%, #3da87a 100%);
         padding: 2rem 2.5rem;
         border-radius: 20px;
         color: white;
         margin-bottom: 2rem;
-        box-shadow: 0 10px 40px rgba(10, 92, 63, 0.3);
+        box-shadow: 0 10px 40px rgba(10, 92, 63, 0.35);
         position: relative;
         overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .main-header h1 { font-size: 2.8rem; font-weight: 800; }
-    .main-header p { opacity: 0.9; font-size: 1.1rem; }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .main-header::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: 10%;
+        width: 250px;
+        height: 250px;
+        background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .main-header h1 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .main-header p {
+        opacity: 0.92;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 1px 5px rgba(0,0,0,0.05);
+    }
     .header-badge {
         display: inline-block;
         background: rgba(255,255,255,0.2);
-        padding: 0.3rem 1rem;
+        padding: 0.3rem 1.2rem;
         border-radius: 50px;
         font-size: 0.75rem;
         font-weight: 600;
         margin-top: 0.5rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.15);
+        position: relative;
+        z-index: 1;
     }
     
+    /* ===== SIDEBAR ===== */
+    .css-1d391kg, .css-1lcbmhc {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
     .sidebar-section {
         background: white;
         padding: 1.2rem;
@@ -86,23 +134,31 @@ st.markdown("""
         margin-bottom: 0.8rem;
     }
     
+    /* ===== CHAT MESSAGES ===== */
     .user-message {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        background: linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%);
         padding: 0.8rem 1.2rem;
         border-radius: 18px 18px 5px 18px;
         margin: 0.5rem 0;
         margin-left: 20%;
-        border: 1px solid #90caf9;
+        border: 1px solid rgba(144, 202, 249, 0.3);
+        box-shadow: 0 2px 8px rgba(144, 202, 249, 0.15);
         animation: slideInRight 0.4s ease;
+        color: #1a237e;
     }
     .assistant-message {
-        background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+        background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
         padding: 0.8rem 1.2rem;
         border-radius: 18px 18px 18px 5px;
         margin: 0.5rem 0;
         margin-right: 20%;
         border-left: 4px solid #0a5c3f;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         animation: slideInLeft 0.4s ease;
+        color: #1a2a3a;
+    }
+    .assistant-message strong {
+        color: #0a5c3f;
     }
     
     @keyframes slideInRight {
@@ -114,6 +170,7 @@ st.markdown("""
         to { opacity: 1; transform: translateX(0); }
     }
     
+    /* ===== EMERGENCY WARNING ===== */
     .emergency-warning {
         background: linear-gradient(135deg, #ff1744 0%, #d50000 100%);
         color: white;
@@ -121,23 +178,64 @@ st.markdown("""
         border-radius: 16px;
         margin: 1rem 0;
         animation: pulse 1.5s infinite;
-        box-shadow: 0 8px 30px rgba(255,23,68,0.3);
+        box-shadow: 0 8px 30px rgba(255,23,68,0.35);
+        border: 1px solid rgba(255,255,255,0.15);
     }
     @keyframes pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.9; transform: scale(1.01); }
+        50% { opacity: 0.92; transform: scale(1.01); }
     }
     
+    /* ===== WELCOME CARD ===== */
     .welcome-card {
-        background: white;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(20px);
         padding: 2rem;
         border-radius: 20px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-        border: 1px solid rgba(0,0,0,0.04);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+        border: 1px solid rgba(255,255,255,0.5);
         margin: 1rem 0;
     }
-    .welcome-card h3 { color: #0a5c3f; font-size: 1.5rem; }
+    .welcome-card h3 {
+        color: #0a5c3f;
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+    }
+    .welcome-card .subtitle {
+        color: #555;
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+    }
     
+    /* ===== ICON BOXES ===== */
+    .icon-box {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        padding: 1.2rem 0.8rem;
+        border-radius: 14px;
+        text-align: center;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(10, 92, 63, 0.08);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        height: 100%;
+    }
+    .icon-box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(10, 92, 63, 0.12);
+        border-color: rgba(10, 92, 63, 0.15);
+    }
+    .icon-box .icon {
+        font-size: 2.5rem;
+        line-height: 1.2;
+        margin-bottom: 0.3rem;
+    }
+    .icon-box .label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #1a2a3a;
+    }
+    
+    /* ===== STATS ===== */
     .stat-card {
         background: white;
         padding: 1rem;
@@ -146,9 +244,17 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         border: 1px solid rgba(0,0,0,0.04);
     }
-    .stat-card .number { font-size: 1.8rem; font-weight: 700; color: #0a5c3f; }
-    .stat-card .label { font-size: 0.8rem; color: #888; }
+    .stat-card .number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #0a5c3f;
+    }
+    .stat-card .label {
+        font-size: 0.8rem;
+        color: #888;
+    }
     
+    /* ===== STATUS ONLINE ===== */
     .status-online {
         display: inline-flex;
         align-items: center;
@@ -172,45 +278,79 @@ st.markdown("""
         50% { opacity: 0.3; }
     }
     
+    /* ===== ADMIN BADGE ===== */
     .admin-badge {
         display: inline-block;
-        background: #ffd700;
+        background: linear-gradient(135deg, #ffd700 0%, #f9a825 100%);
         color: #333;
         padding: 0.2rem 0.8rem;
         border-radius: 50px;
         font-size: 0.7rem;
         font-weight: 700;
+        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
     }
     
-    .icon-box {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 12px;
-        text-align: center;
-        transition: all 0.3s;
-        border: 1px solid #e8e8e8;
+    /* ===== SECTION DIVIDERS ===== */
+    .section-divider {
+        border: none;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(10, 92, 63, 0.15), transparent);
+        margin: 1.5rem 0;
     }
-    .icon-box:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .icon-box .icon {
-        font-size: 2.5rem;
-        line-height: 1.2;
-    }
-    .icon-box .label {
-        font-weight: 600;
+    
+    /* ===== EXAMPLE QUESTIONS ===== */
+    .example-btn {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
         font-size: 0.85rem;
-        color: #333;
+        font-weight: 500;
+        color: #0a5c3f;
+        transition: all 0.3s;
+        cursor: pointer;
+        width: 100%;
+        text-align: center;
+    }
+    .example-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(10, 92, 63, 0.15);
+        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
     }
     
-    .footer { text-align: center; padding: 2rem 0 0.5rem; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 2rem; }
-    .footer p { color: #999; font-size: 0.8rem; margin: 0.2rem 0; }
-    .footer .disclaimer { color: #ff6b6b; font-size: 0.75rem; }
+    /* ===== FOOTER ===== */
+    .footer {
+        text-align: center;
+        padding: 2rem 0 0.5rem;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        margin-top: 2rem;
+    }
+    .footer p {
+        color: #888;
+        font-size: 0.8rem;
+        margin: 0.2rem 0;
+    }
+    .footer .disclaimer {
+        color: #e57373;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
     
+    /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
         .main-header h1 { font-size: 2rem; }
-        .user-message, .assistant-message { margin-left: 5%; margin-right: 5%; }
+        .main-header { padding: 1.5rem; }
+        .user-message, .assistant-message {
+            margin-left: 5% !important;
+            margin-right: 5% !important;
+        }
+        .welcome-card { padding: 1.2rem; }
+    }
+    
+    @media (max-width: 480px) {
+        .main-header h1 { font-size: 1.5rem; }
+        .icon-box .icon { font-size: 2rem; }
+        .icon-box .label { font-size: 0.75rem; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -589,7 +729,7 @@ if not st.session_state.messages:
     st.markdown("""
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
-        <p style="color: #666; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant for evidence-based health information.</p>
+        <p style="color: #555; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant for evidence-based health information.</p>
     """, unsafe_allow_html=True)
     
     # === ICON BOXES USING STREAMLIT COLUMNS ===
@@ -627,40 +767,50 @@ if not st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
     
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
-    # === USING STREAMLIT'S MARKDOWN FOR THE REST (FOOLPROOF!) ===
+    # === HOW IT WORKS ===
     st.markdown("#### ✨ How It Works")
     st.markdown("""
-    1. **Medical documents** are pre-loaded by healthcare professionals
-    2. **Ask** questions about symptoms, treatments, or conditions
-    3. **Get** evidence-based answers from trusted medical sources
-    4. **Receive** emergency warnings for critical symptoms
-    """)
+    <div style="background: #f8fafc; padding: 1rem 1.5rem; border-radius: 12px; border-left: 4px solid #0a5c3f; margin-bottom: 1rem;">
+        <ol style="color: #333; line-height: 2.2; margin-left: 0; padding-left: 1.2rem;">
+            <li><strong>Medical documents</strong> are pre-loaded by healthcare professionals</li>
+            <li><strong>Ask</strong> questions about symptoms, treatments, or conditions</li>
+            <li><strong>Get</strong> evidence-based answers from trusted medical sources</li>
+            <li><strong>Receive</strong> emergency warnings for critical symptoms</li>
+        </ol>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
+    # === EXAMPLE QUESTIONS ===
     st.markdown("#### 💡 Example Questions")
+    st.markdown("Click any question below to ask it:")
     
-    # Example questions as buttons
     questions = [
-        "What are the symptoms of diabetes?",
-        "How is hypertension treated?",
-        "What causes chest pain?",
-        "What medications are used for heart disease?"
+        ("🩸 What are the symptoms of diabetes?", "What are the symptoms of diabetes?"),
+        ("❤️ How is hypertension treated?", "How is hypertension treated?"),
+        ("🫀 What causes chest pain?", "What causes chest pain?"),
+        ("💊 What medications are used for heart disease?", "What medications are used for heart disease?")
     ]
     
     cols = st.columns(2)
-    for i, q in enumerate(questions):
+    for i, (display_text, actual_question) in enumerate(questions):
         with cols[i % 2]:
-            if st.button(q, use_container_width=True):
-                # When clicked, this will trigger a chat input
-                st.session_state._example_question = q
+            if st.button(display_text, use_container_width=True):
+                st.session_state._example_question = actual_question
                 st.rerun()
     
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
-    st.warning("⚠️ **Medical Disclaimer:** This is for educational purposes only. Always consult a healthcare professional for medical advice.")
+    # === DISCLAIMER ===
+    st.markdown("""
+    <div style="background: #fff3e0; padding: 1rem 1.2rem; border-radius: 12px; border-left: 4px solid #ff9800; margin-top: 0.5rem;">
+        <strong style="color: #e65100;">⚠️ Medical Disclaimer:</strong>
+        <span style="color: #555; font-size: 0.9rem;">This is for educational purposes only. Always consult a healthcare professional for medical advice.</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
