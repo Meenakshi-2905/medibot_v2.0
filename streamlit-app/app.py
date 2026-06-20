@@ -93,6 +93,7 @@ st.markdown("""
         position: relative;
         z-index: 1;
         text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin: 0;
     }
     .main-header p {
         opacity: 0.92;
@@ -100,6 +101,7 @@ st.markdown("""
         position: relative;
         z-index: 1;
         text-shadow: 0 1px 5px rgba(0,0,0,0.05);
+        margin: 0.3rem 0 0 0;
     }
     .header-badge {
         display: inline-block;
@@ -188,7 +190,7 @@ st.markdown("""
     
     /* ===== WELCOME CARD ===== */
     .welcome-card {
-        background: rgba(255, 255, 255, 0.92);
+        background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(20px);
         padding: 2rem;
         border-radius: 20px;
@@ -298,24 +300,43 @@ st.markdown("""
         margin: 1.5rem 0;
     }
     
-    /* ===== EXAMPLE QUESTIONS ===== */
-    .example-btn {
-        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #0a5c3f;
-        transition: all 0.3s;
-        cursor: pointer;
-        width: 100%;
-        text-align: center;
+    /* ===== HOW IT WORKS BOX ===== */
+    .how-it-works-box {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        border-left: 4px solid #0a5c3f;
+        margin: 1rem 0;
     }
-    .example-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(10, 92, 63, 0.15);
-        background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    .how-it-works-box ol {
+        color: #333;
+        line-height: 2.2;
+        margin-left: 0;
+        padding-left: 1.2rem;
+    }
+    .how-it-works-box ol li strong {
+        color: #0a5c3f;
+    }
+    
+    /* ===== DISCLAIMER BOX ===== */
+    .disclaimer-box {
+        background: #fff3e0;
+        padding: 1rem 1.2rem;
+        border-radius: 12px;
+        border-left: 4px solid #ff9800;
+        margin: 1rem 0;
+    }
+    .disclaimer-box strong {
+        color: #e65100;
+    }
+    .disclaimer-box span {
+        color: #555;
+        font-size: 0.9rem;
+    }
+    
+    /* ===== EXAMPLE QUESTIONS ===== */
+    .example-btn-container {
+        margin: 0.5rem 0;
     }
     
     /* ===== FOOTER ===== */
@@ -767,13 +788,14 @@ if not st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
     
+    # === SECTION DIVIDER ===
     st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
     # === HOW IT WORKS ===
     st.markdown("#### ✨ How It Works")
     st.markdown("""
-    <div style="background: #f8fafc; padding: 1rem 1.5rem; border-radius: 12px; border-left: 4px solid #0a5c3f; margin-bottom: 1rem;">
-        <ol style="color: #333; line-height: 2.2; margin-left: 0; padding-left: 1.2rem;">
+    <div class="how-it-works-box">
+        <ol>
             <li><strong>Medical documents</strong> are pre-loaded by healthcare professionals</li>
             <li><strong>Ask</strong> questions about symptoms, treatments, or conditions</li>
             <li><strong>Get</strong> evidence-based answers from trusted medical sources</li>
@@ -782,6 +804,7 @@ if not st.session_state.messages:
     </div>
     """, unsafe_allow_html=True)
     
+    # === SECTION DIVIDER ===
     st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
     # === EXAMPLE QUESTIONS ===
@@ -798,17 +821,18 @@ if not st.session_state.messages:
     cols = st.columns(2)
     for i, (display_text, actual_question) in enumerate(questions):
         with cols[i % 2]:
-            if st.button(display_text, use_container_width=True):
+            if st.button(display_text, use_container_width=True, type="secondary"):
                 st.session_state._example_question = actual_question
                 st.rerun()
     
+    # === SECTION DIVIDER ===
     st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
     
     # === DISCLAIMER ===
     st.markdown("""
-    <div style="background: #fff3e0; padding: 1rem 1.2rem; border-radius: 12px; border-left: 4px solid #ff9800; margin-top: 0.5rem;">
-        <strong style="color: #e65100;">⚠️ Medical Disclaimer:</strong>
-        <span style="color: #555; font-size: 0.9rem;">This is for educational purposes only. Always consult a healthcare professional for medical advice.</span>
+    <div class="disclaimer-box">
+        <strong>⚠️ Medical Disclaimer:</strong>
+        <span>This is for educational purposes only. Always consult a healthcare professional for medical advice.</span>
     </div>
     """, unsafe_allow_html=True)
     
