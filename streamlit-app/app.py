@@ -7,11 +7,9 @@ import streamlit as st
 import os
 import tempfile
 import json
-import hashlib
 import shutil
 from datetime import datetime
-from typing import List, Dict, Any
-import pickle
+from typing import List
 
 # ==================== IMPORTS ====================
 try:
@@ -25,7 +23,6 @@ try:
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.embeddings import HuggingFaceEmbeddings
     from langchain_community.vectorstores import Chroma
-    from langchain_community.vectorstores import FAISS
     RAG_AVAILABLE = True
 except ImportError:
     RAG_AVAILABLE = False
@@ -185,6 +182,8 @@ st.markdown("""
         font-weight: 700;
     }
     
+    .icon-large { font-size: 2.5rem; line-height: 1.2; }
+    
     .footer { text-align: center; padding: 2rem 0 0.5rem; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 2rem; }
     .footer p { color: #999; font-size: 0.8rem; margin: 0.2rem 0; }
     .footer .disclaimer { color: #ff6b6b; font-size: 0.75rem; }
@@ -221,11 +220,9 @@ init_session_state()
 
 # ==================== PERSISTENT STORAGE FUNCTIONS ====================
 def ensure_storage_dir():
-    """Create storage directory if it doesn't exist"""
     os.makedirs(PERSIST_DIR, exist_ok=True)
 
 def save_metadata(doc_name: str, chunk_count: int):
-    """Save document metadata"""
     ensure_storage_dir()
     metadata = {
         "doc_name": doc_name,
@@ -237,21 +234,17 @@ def save_metadata(doc_name: str, chunk_count: int):
         json.dump(metadata, f, indent=2)
 
 def load_metadata():
-    """Load document metadata"""
     if os.path.exists(METADATA_FILE):
         with open(METADATA_FILE, "r") as f:
             return json.load(f)
     return None
 
 def is_vectorstore_persistent():
-    """Check if vectorstore exists in persistent storage"""
     return os.path.exists(VECTORSTORE_PATH) and os.path.exists(os.path.join(VECTORSTORE_PATH, "index.pkl"))
 
 def load_persistent_vectorstore():
-    """Load vectorstore from persistent storage"""
     if not RAG_AVAILABLE:
         return None, None
-    
     try:
         if is_vectorstore_persistent():
             embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -260,40 +253,24 @@ def load_persistent_vectorstore():
             return vectorstore, metadata
     except Exception as e:
         print(f"Error loading vectorstore: {e}")
-    
     return None, None
 
-def save_vectorstore(vectorstore):
-    """Save vectorstore to persistent storage"""
-    try:
-        ensure_storage_dir()
-        vectorstore.persist()
-        return True
-    except Exception as e:
-        print(f"Error saving vectorstore: {e}")
-        return False
-
 def clear_persistent_storage():
-    """Clear all persistent storage"""
     if os.path.exists(PERSIST_DIR):
         shutil.rmtree(PERSIST_DIR)
     ensure_storage_dir()
 
 # ==================== INITIALIZATION ====================
 def initialize_app():
-    """Load persistent data on app startup"""
     if st.session_state.initialized:
         return
-    
     try:
         vectorstore, metadata = load_persistent_vectorstore()
-        
         if vectorstore and metadata:
             st.session_state.vectorstore = vectorstore
             st.session_state.docs_loaded = True
             st.session_state.doc_name = metadata.get("doc_name", "Unknown")
             st.session_state.initialized = True
-            
             if not st.session_state.messages:
                 st.session_state.messages.append({
                     "role": "assistant",
@@ -301,20 +278,16 @@ def initialize_app():
                 })
     except Exception as e:
         print(f"Error initializing app: {e}")
-    
     st.session_state.initialized = True
 
 initialize_app()
 
 # ==================== ADMIN AUTHENTICATION ====================
 def check_admin():
-    """Check if user is admin"""
     if not st.session_state.is_admin:
         st.sidebar.markdown("---")
         st.sidebar.markdown("### 🔐 Admin Access")
-        
         password = st.sidebar.text_input("Enter Admin Password", type="password")
-        
         if st.sidebar.button("Login as Admin"):
             if password == ADMIN_PASSWORD:
                 st.session_state.is_admin = True
@@ -322,11 +295,10 @@ def check_admin():
                 st.rerun()
             else:
                 st.sidebar.error("❌ Wrong password!")
-        
         return False
     else:
         st.sidebar.markdown("---")
-        st.sidebar.markdown(f"### 👑 Admin Mode")
+        st.sidebar.markdown("### 👑 Admin Mode")
         st.sidebar.markdown('<span class="admin-badge">ADMIN</span>', unsafe_allow_html=True)
         if st.sidebar.button("Logout"):
             st.session_state.is_admin = False
@@ -346,26 +318,18 @@ def get_groq_client():
 
 # ==================== RAG FUNCTIONS ====================
 def process_pdf(file):
-    """Process uploaded PDF and save to persistent storage"""
     if not RAG_AVAILABLE:
         return None, 0
-    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(file.getvalue())
         tmp_path = tmp.name
-    
     try:
         loader = PyPDFLoader(tmp_path)
         docs = loader.load()
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents(docs)
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        
-        vectorstore = Chroma.from_documents(
-            chunks, 
-            embeddings,
-            persist_directory=VECTORSTORE_PATH
-        )
+        vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory=VECTORSTORE_PATH)
         vectorstore.persist()
         save_metadata(file.name, len(chunks))
         return vectorstore, len(chunks)
@@ -406,7 +370,6 @@ def get_response(query: str, context: str, history: str) -> str:
     client = get_groq_client()
     if not client:
         return "⚠️ Groq is not available. Please check your API key."
-    
     prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
 Use ONLY the provided context.
 
@@ -426,7 +389,6 @@ Guidelines:
 5. Include medical disclaimer
 
 YOUR RESPONSE:"""
-
     try:
         model = st.secrets.get("GROQ_MODEL", "llama-3.3-70b-versatile")
         response = client.chat.completions.create(
@@ -603,7 +565,6 @@ if st.session_state.emergency:
     """, unsafe_allow_html=True)
 
 if not st.session_state.messages:
-    # ADDED unsafe_allow_html=True HERE TO FIX YOUR FRONTEND LAYOUT
     st.markdown("""
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
@@ -611,19 +572,19 @@ if not st.session_state.messages:
         
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0;">
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">📚</div>
+                <div style="font-size: 2.5rem;">&#128218;</div>
                 <div style="font-weight: 600; font-size: 0.85rem;">Medical Documents</div>
             </div>
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">💬</div>
+                <div style="font-size: 2.5rem;">&#128172;</div>
                 <div style="font-weight: 600; font-size: 0.85rem;">Ask Questions</div>
             </div>
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">🤖</div>
+                <div style="font-size: 2.5rem;">&#129302;</div>
                 <div style="font-weight: 600; font-size: 0.85rem;">AI Answers</div>
             </div>
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
-                <div style="font-size: 2.5rem;">⚠️</div>
+                <div style="font-size: 2.5rem;">&#9888;</div>
                 <div style="font-weight: 600; font-size: 0.85rem;">Emergency Alerts</div>
             </div>
         </div>
