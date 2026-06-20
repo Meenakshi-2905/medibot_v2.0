@@ -187,9 +187,8 @@ st.markdown("""
         padding: 1rem;
         border-radius: 12px;
         text-align: center;
-        flex: 1;
-        min-width: 120px;
         transition: all 0.3s;
+        border: 1px solid #e8e8e8;
     }
     .icon-box:hover {
         transform: translateY(-3px);
@@ -575,7 +574,7 @@ with st.sidebar:
         st.session_state.emergency = False
         st.rerun()
 
-# ==================== WELCOME / CHAT AREA (PUBLIC) ====================
+# ==================== WELCOME SECTION ====================
 if st.session_state.emergency:
     st.markdown(f"""
     <div class="emergency-warning">
@@ -585,14 +584,15 @@ if st.session_state.emergency:
     </div>
     """, unsafe_allow_html=True)
 
+# ==================== WELCOME / CHAT AREA ====================
 if not st.session_state.messages:
     st.markdown("""
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
-        <p class="subtitle">Your AI-powered medical assistant for evidence-based health information.</p>
+        <p style="color: #666; font-size: 1rem; margin-bottom: 1.5rem;">Your AI-powered medical assistant for evidence-based health information.</p>
     """, unsafe_allow_html=True)
     
-    # ============ USING STREAMLIT COLUMNS (FOOLPROOF!) ============
+    # === ICON BOXES USING STREAMLIT COLUMNS ===
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -627,48 +627,62 @@ if not st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
     
+    st.markdown("<hr>", unsafe_allow_html=True)
+    
+    # === USING STREAMLIT'S MARKDOWN FOR THE REST (FOOLPROOF!) ===
+    st.markdown("#### ✨ How It Works")
     st.markdown("""
-        <hr>
-        
-        <h4>✨ How It Works</h4>
-        <ol style="color: #555; line-height: 2;">
-            <li><strong>Medical documents</strong> are pre-loaded by healthcare professionals</li>
-            <li><strong>Ask</strong> questions about symptoms, treatments, or conditions</li>
-            <li><strong>Get</strong> evidence-based answers from trusted medical sources</li>
-            <li><strong>Receive</strong> emergency warnings for critical symptoms</li>
-        </ol>
-        
-        <hr>
-        
-        <h4>💡 Example Questions</h4>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-            <span style="background: #e8f5e9; padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">What are the symptoms of diabetes?</span>
-            <span style="background: #e8f5e9; padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">How is hypertension treated?</span>
-            <span style="background: #e8f5e9; padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">What causes chest pain?</span>
-            <span style="background: #e8f5e9; padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">What medications are used for heart disease?</span>
-        </div>
-        
-        <hr>
-        
-        <div style="background: #fff3e0; padding: 1rem; border-radius: 12px; border-left: 4px solid #ff9800;">
-            <strong>⚠️ Medical Disclaimer:</strong>
-            <span style="color: #666; font-size: 0.9rem;">This is for educational purposes only. Always consult a healthcare professional for medical advice.</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    1. **Medical documents** are pre-loaded by healthcare professionals
+    2. **Ask** questions about symptoms, treatments, or conditions
+    3. **Get** evidence-based answers from trusted medical sources
+    4. **Receive** emergency warnings for critical symptoms
+    """)
+    
+    st.markdown("<hr>", unsafe_allow_html=True)
+    
+    st.markdown("#### 💡 Example Questions")
+    
+    # Example questions as buttons
+    questions = [
+        "What are the symptoms of diabetes?",
+        "How is hypertension treated?",
+        "What causes chest pain?",
+        "What medications are used for heart disease?"
+    ]
+    
+    cols = st.columns(2)
+    for i, q in enumerate(questions):
+        with cols[i % 2]:
+            if st.button(q, use_container_width=True):
+                # When clicked, this will trigger a chat input
+                st.session_state._example_question = q
+                st.rerun()
+    
+    st.markdown("<hr>", unsafe_allow_html=True)
+    
+    st.warning("⚠️ **Medical Disclaimer:** This is for educational purposes only. Always consult a healthcare professional for medical advice.")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
     
     if not st.session_state.docs_loaded:
         st.info("📚 Medical knowledge base is being prepared. Please check back soon!")
 
 else:
+    # Chat history display
     for msg in st.session_state.messages:
         if msg["role"] == "user":
             st.markdown(f'<div class="user-message">👤 <strong>You</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="assistant-message">🩺 <strong>Dr. Medibot</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
+# ==================== CHAT INPUT ====================
 if st.session_state.docs_loaded:
     user_input = st.chat_input("Ask a question about medical topics...")
+    
+    # Check if there's an example question from button click
+    if hasattr(st.session_state, '_example_question'):
+        user_input = st.session_state._example_question
+        del st.session_state._example_question
     
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -713,6 +727,7 @@ if st.session_state.docs_loaded:
 else:
     st.info("📚 The medical knowledge base is being prepared. Please check back soon!")
 
+# ==================== FOOTER ====================
 st.markdown("""
 <div class="footer">
     <p>🩺 Dr. Medibot v2.0 • Powered by Groq AI</p>
