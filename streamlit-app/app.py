@@ -1,6 +1,6 @@
 """
-🩺 Dr. Medibot - DEBUG VERSION
-Shows exactly what's happening with the API key
+🩺 Dr. Medibot - Simplified Version
+No ChromaDB - Uses text-based search instead
 """
 
 import streamlit as st
@@ -102,16 +102,6 @@ st.markdown("""
         box-shadow: 0 4px 20px rgba(0,0,0,0.06);
         margin: 1rem 0;
     }
-    .debug-box {
-        background: #1e1e1e;
-        color: #00ff00;
-        padding: 1rem;
-        border-radius: 10px;
-        font-family: monospace;
-        font-size: 0.8rem;
-        margin: 0.5rem 0;
-        overflow-x: auto;
-    }
     .footer { text-align: center; padding: 2rem 0 0.5rem; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 2rem; }
     .footer .disclaimer { color: #ff6b6b; font-size: 0.75rem; }
     @media (max-width: 768px) {
@@ -144,56 +134,27 @@ def check_admin():
             st.rerun()
         return True
 
-# ==================== GROQ WITH DEBUG ====================
+# ==================== GROQ ====================
+@st.cache_resource
 def get_groq_client():
-    """Get Groq client with detailed debugging"""
-    debug_info = []
-    
     try:
-        # Check if secrets exist
-        has_secrets = hasattr(st, 'secrets')
-        debug_info.append(f"🔍 st.secrets available: {has_secrets}")
-        
-        if has_secrets:
-            # Get API key
-            api_key = st.secrets.get("GROQ_API_KEY")
-            debug_info.append(f"🔑 GROQ_API_KEY exists: {api_key is not None}")
-            
-            if api_key:
-                debug_info.append(f"📝 API Key length: {len(api_key)}")
-                debug_info.append(f"📝 API Key starts with: {api_key[:10]}...")
-                
-                # Check if it's the placeholder
-                if "your_groq_api_key_here" in api_key or "example" in api_key:
-                    debug_info.append("⚠️ API Key looks like a placeholder!")
-                    return None, debug_info
-                
-                # Try to create client
-                try:
-                    client = Groq(api_key=api_key)
-                    debug_info.append("✅ Groq client created successfully")
-                    return client, debug_info
-                except Exception as e:
-                    debug_info.append(f"❌ Failed to create Groq client: {str(e)}")
-                    return None, debug_info
-            else:
-                debug_info.append("❌ GROQ_API_KEY is empty or None")
-                return None, debug_info
-        else:
-            debug_info.append("❌ st.secrets not available")
-            return None, debug_info
-            
-    except Exception as e:
-        debug_info.append(f"❌ Unexpected error: {str(e)}")
-        return None, debug_info
+        api_key = st.secrets.get("GROQ_API_KEY")
+        if api_key and GROQ_AVAILABLE:
+            return Groq(api_key=api_key)
+    except:
+        pass
+    return None
 
 # ==================== PDF PROCESSING ====================
 def extract_text_from_pdf(file):
+    """Extract text from PDF using pypdf (no ChromaDB)"""
     if not PDF_AVAILABLE:
         return None
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(file.getvalue())
         tmp_path = tmp.name
+    
     try:
         reader = PdfReader(tmp_path)
         text = ""
@@ -207,11 +168,17 @@ def extract_text_from_pdf(file):
         os.unlink(tmp_path)
 
 def search_in_text(query: str, text: str, max_chunks: int = 3):
+    """Simple text search (no vector DB)"""
     if not text:
         return []
+    
+    # Split into paragraphs
     paragraphs = text.split("\n\n")
+    
+    # Score each paragraph by keyword matches
     query_words = set(query.lower().split())
     scored = []
+    
     for i, para in enumerate(paragraphs):
         if len(para.strip()) < 20:
             continue
@@ -219,14 +186,15 @@ def search_in_text(query: str, text: str, max_chunks: int = 3):
         score = len(query_words.intersection(para_words))
         if score > 0:
             scored.append((score, i, para))
+    
+    # Sort by score and return top chunks
     scored.sort(reverse=True)
     return [para for _, _, para in scored[:max_chunks]]
 
 def get_response(query: str, context: str, history: str) -> str:
-    client, debug_info = get_groq_client()
-    
+    client = get_groq_client()
     if not client:
-        return f"❌ Error: Groq client not available.\n\nDebug Info:\n" + "\n".join(debug_info)
+        return "⚠️ Groq is not available."
     
     prompt = f"""You are Dr. Medibot, a caring medical AI assistant.
 Use ONLY the provided context.
@@ -264,9 +232,9 @@ st.markdown("""
     <div style="display: flex; align-items: center; gap: 1rem;">
         <span style="font-size: 3rem;">🩺</span>
         <div>
-            <h1>Dr. Medibot - DEBUG MODE</h1>
-            <p>Your AI Medical Assistant</p>
-            <div class="header-badge">🔍 Debug Mode ON</div>
+            <h1>Dr. Medibot</h1>
+            <p>Your AI Medical Assistant — Evidence-Based Answers from Medical Documents</p>
+            <div class="header-badge">⚡ Powered by Groq AI &nbsp;•&nbsp; 🔒 100% Private</div>
         </div>
     </div>
 </div>
@@ -278,7 +246,7 @@ with st.sidebar:
     <div style="text-align: center; padding: 0.5rem 0 1rem 0;">
         <span style="font-size: 3rem;">🩺</span>
         <h2 style="color: #0a5c3f; margin: 0;">Dr. Medibot</h2>
-        <p style="color: #888; font-size: 0.8rem;">v2.0 • DEBUG MODE</p>
+        <p style="color: #888; font-size: 0.8rem;">v2.0 • AI Medical Assistant</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -329,28 +297,15 @@ with st.sidebar:
             else:
                 st.info("⏳ Knowledge base is being prepared")
         
-        # ===== DEBUG: Show API Key Status =====
-        st.markdown("### 🔑 API Key Debug")
-        
-        client, debug_info = get_groq_client()
-        
-        for line in debug_info:
-            if "✅" in line:
-                st.success(line)
-            elif "❌" in line:
-                st.error(line)
-            elif "⚠️" in line:
-                st.warning(line)
-            else:
-                st.code(line)
-        
+        client = get_groq_client()
         if client:
-            st.success("✅ Groq Client Ready!")
+            st.success("✅ Groq API Connected")
         else:
-            st.error("❌ Groq Client NOT Ready")
+            st.error("❌ Groq API Not Connected")
     
     st.markdown("---")
     
+    # Statistics
     st.metric("💬 Messages", len(st.session_state.messages))
     
     if st.button("🔄 New Session", use_container_width=True):
@@ -363,7 +318,6 @@ if not st.session_state.messages:
     <div class="welcome-card">
         <h3>💙 Welcome to Dr. Medibot!</h3>
         <p>Your AI-powered medical assistant for evidence-based health information.</p>
-        <p style="color: #ff6b6b; font-weight: bold;">🔍 DEBUG MODE ACTIVE</p>
         
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0;">
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
@@ -378,7 +332,20 @@ if not st.session_state.messages:
                 <div style="font-size: 2.5rem;">🤖</div>
                 <div style="font-weight: 600;">AI Answers</div>
             </div>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 12px; text-align: center; flex: 1; min-width: 120px;">
+                <div style="font-size: 2.5rem;">⚠️</div>
+                <div style="font-weight: 600;">Emergency Alerts</div>
+            </div>
         </div>
+        
+        <hr>
+        
+        <h4>✨ How It Works</h4>
+        <ol style="color: #555; line-height: 2;">
+            <li><strong>Medical documents</strong> are uploaded by healthcare professionals</li>
+            <li><strong>Ask</strong> questions about symptoms, treatments, or conditions</li>
+            <li><strong>Get</strong> evidence-based answers from trusted medical sources</li>
+        </ol>
         
         <hr>
         
@@ -408,6 +375,7 @@ if st.session_state.docs_loaded:
         
         with st.spinner("🩺 Dr. Medibot is thinking..."):
             try:
+                # Search for relevant context
                 results = search_in_text(user_input, st.session_state.doc_text)
                 
                 if results:
@@ -433,7 +401,7 @@ else:
 # ==================== FOOTER ====================
 st.markdown("""
 <div class="footer">
-    <p>🩺 Dr. Medibot v2.0 • 🔍 Debug Mode</p>
+    <p>🩺 Dr. Medibot v2.0 • Powered by Groq AI</p>
     <p class="disclaimer">⚠️ For educational purposes only. Always consult a healthcare professional.</p>
 </div>
 """, unsafe_allow_html=True)
